@@ -72,6 +72,19 @@ specialists, surfacing disagreements, final synthesis. Everything that *executes
 
 One Workflow call per code-changing branch. The executable script and schemas live in `references/review-loop.md`.
 
+### Workflow dispatch hygiene (avoid CWD / cache / writer traps)
+
+- **CWD = repo root, always.** Never `cd` into a nested or vendored repo before a Workflow — subagents inherit the
+  shell's CWD at launch and resolve relative paths from it, so a task for one repo silently edits the other. Use
+  `git -C <path>` and absolute paths; confirm the shell sits at the repo root before each dispatch.
+- **Fresh `script` per dispatch.** Pass a new `script` each time. Use `scriptPath` + `resumeFromRunId` ONLY for a
+  deliberate resume — reusing a `scriptPath` without `resumeFromRunId` replays cached `agent()` results, so the
+  report reads "success" while the disk never changed.
+- **Trust the disk, not the report.** After every Workflow, verify with `git -C <repo> status` / `diff` and grep
+  for the expected change; never trust the returned `files` / `stoppedBy` in the report alone.
+- **Cross-repo or mechanical edits: prefer a direct edit + a read-only review** over a writer subagent — the writer
+  can reinterpret the requirement or revert unrelated changes (a subagent limitation, not a tool bug).
+
 ## Process
 
 1. Understand intent. If ambiguous, ask ONE clarifying question max before dispatching, then commit.
