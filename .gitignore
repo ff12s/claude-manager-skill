@@ -7,3 +7,6 @@ desktop.ini
 .idea/
 .vscode/
 *.swp
+
+# Local-only design/planning artifacts (kept on disk, not tracked)
+docs/superpowers/
