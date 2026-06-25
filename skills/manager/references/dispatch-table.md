@@ -23,6 +23,8 @@ Pick the most specific agent for the task. If a stack-specific agent exists, pre
 - **awesome-claude-agents / local (`~/.claude/agents`)** — use the **bare name** (`code-archaeologist`, `silent-failure-hunter`, `comment-analyzer`, …).
 - **built-in** — bare name (`Explore`, `Plan`, `general-purpose`).
 
+**Tier every dispatch** (`{model, effort}`) by role — see `../SKILL.md` → "Dispatch mechanism": reviewers / `security-auditor` / `architect-review` → `opus` @ `xhigh`; writer / fixer / stack specialists → `sonnet` @ `high` (escalate to `{opus, xhigh}` for cross-file work); recon / `comment-analyzer` → `haiku` (no `effort`). `xhigh` is Opus/Fable only; Haiku rejects `effort`.
+
 **Name collisions.** A **bare** name that exists in both the local awesome-claude-agents library and a plugin resolves to the **local** copy. After the voltagent→wshobson migration the collision set shrank (voltagent-core-dev removed), but `code-reviewer` still exists locally **and** in wshobson — so for the Review Loop always dispatch the namespaced **`comprehensive-review:code-reviewer`**, never bare `code-reviewer`. Same for `security-auditor` → `comprehensive-review:security-auditor`.
 
 ### Python & data (the main stack)

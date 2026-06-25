@@ -6,7 +6,7 @@ description: Use this skill when starting a multi-step task that touches more th
 # Manager — orchestrate with a Review Loop
 
 When this skill activates, **you are the orchestrator**, not the implementer. You read just enough to scope the
-work, dispatch specialists through the **Workflow tool** — every agent pinned to `{model:'opus', effort:'xhigh'}`
+work, dispatch specialists through the **Workflow tool** — each on a model+effort tier matched to its role
 (see *Dispatch mechanism*) — and run a Review Loop until the work is clean. Don't report done after one review pass.
 
 You hold the orchestration state in your own context (subagents are stateless between calls). Delegate file edits
@@ -27,7 +27,7 @@ and gives each task an isolated context. The only writing you do is the final su
 
 ## Toolbox priority — superpowers skills are the spine
 
-You command **skills** (how you work — Skill tool), **agents** (who works — dispatched via Workflow at opus/xhigh),
+You command **skills** (how you work — Skill tool), **agents** (who works — dispatched via Workflow on per-role model+effort tiers),
 and **MCP servers** (what you query). Full inventory: `references/toolbox.md`.
 
 **Superpowers comes first.** The `superpowers:*` skills define *how* you operate; specialist agents only define
@@ -51,26 +51,38 @@ third-party library, framework, API, CLI, cloud service, or an established patte
 ORM sessions, async, migrations…) — i.e. nearly every code change. Grounding is your job, not a subagent's
 (subagents don't know which version the repo pins). Full procedure: `references/grounding.md`.
 
-## Dispatch mechanism — Workflow at opus + xhigh (read before dispatching)
+## Dispatch mechanism — model+effort tiers via Workflow (read before dispatching)
 
-**Every specialist — writer, fixer, reviewer — runs as a Workflow `agent()` call pinned to
-`{model:'opus', effort:'xhigh'}`.** Don't dispatch substantive work through the Agent tool directly: the Agent
-tool can't set reasoning effort (no `effort` param, no effort frontmatter key), and only Workflow's
-`agent(prompt, {model, effort})` pins both. `{model:'opus'}` in the opts overrides each agent's frontmatter model,
-so even agents pinned to `sonnet` run on opus.
+**Every specialist runs as a Workflow `agent()` call** — the Agent tool can't set reasoning effort (no `effort`
+param, no effort frontmatter key); only Workflow's `agent(prompt, {model, effort})` pins both. The `model` in the
+opts overrides each agent's frontmatter model, so the tier you pass wins regardless of how the agent is defined.
+
+**Tiers — judgment on Opus, execution on Sonnet, mechanics on Haiku:**
+
+| Role | Tier |
+|---|---|
+| Orchestrator (you) | `opus` @ `high` (heavy scoping/planning: `xhigh`) |
+| `code-reviewer`, `security-auditor`, `architect-review` | `opus` @ `xhigh` |
+| Writer / fixer, stack specialists | `sonnet` @ `high` — escalate to `{opus, xhigh}` for cross-file / unfamiliar-codebase work |
+| `silent-failure-hunter` | `sonnet` @ `high` |
+| recon / `Explore`, `comment-analyzer` | `haiku` (no `effort`) |
+
+**Compatibility resolver (always apply):** `xhigh` is **Opus/Fable only** — for Sonnet the ceiling is `max`; **Haiku
+rejects `effort` entirely** (omit it). The Review-Loop script's `power()` enforces this; apply the same rule on any
+direct dispatch. Keep `code-reviewer`/`security-auditor` on Opus — Sonnet trails on review recall.
 
 What stays in the main loop (you), because a Workflow can't: scoping the repo, clarifying questions, picking
 specialists, surfacing disagreements, final synthesis. Everything that *executes a specialist* goes through a Workflow.
 
 - **Namespacing:** pass the resolved dispatch name as `agentType` (e.g. `agentType:'comprehensive-review:code-reviewer'`),
-  with `model:'opus', effort:'xhigh'` in the same opts. wshobson agents are `<bundle>:<agent>` (primary set); the two
+  with the role's `{model, effort}` in the same opts. wshobson agents are `<bundle>:<agent>` (primary set); the two
   remaining voltagent plugins (`voltagent-qa-sec`, `voltagent-data-ai`) are used only for orphan agents; bare names
   resolve to the local awesome-claude-agents copy. See `references/dispatch-table.md` for resolution & collisions.
 - **Fan-out:** reviewers run via `parallel(...)` inside the Workflow; the runtime caps concurrency (≤ min(16, cores−2)).
 - **Structured output:** reviewers return `findings[]` via JSON schema; the writer/fixer return `{path,size,head,tail}`
   snapshots so the orchestrator needs no filesystem access.
 
-One Workflow call per code-changing branch. The executable script and schemas live in `references/review-loop.md`.
+One Workflow call per code-changing branch. The executable script, tiers, and resolver live in `references/review-loop.md`.
 
 ### Workflow dispatch hygiene (avoid CWD / cache / writer traps)
 
