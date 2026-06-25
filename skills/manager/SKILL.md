@@ -62,9 +62,10 @@ so even agents pinned to `sonnet` run on opus.
 What stays in the main loop (you), because a Workflow can't: scoping the repo, clarifying questions, picking
 specialists, surfacing disagreements, final synthesis. Everything that *executes a specialist* goes through a Workflow.
 
-- **Namespacing:** pass the resolved dispatch name as `agentType` (e.g. `agentType:'voltagent-qa-sec:code-reviewer'`),
-  with `model:'opus', effort:'xhigh'` in the same opts. Bare names resolve to the local awesome-claude-agents copy —
-  namespace reviewers explicitly. See `references/dispatch-table.md` for resolution & collisions.
+- **Namespacing:** pass the resolved dispatch name as `agentType` (e.g. `agentType:'comprehensive-review:code-reviewer'`),
+  with `model:'opus', effort:'xhigh'` in the same opts. wshobson agents are `<bundle>:<agent>` (primary set); the two
+  remaining voltagent plugins (`voltagent-qa-sec`, `voltagent-data-ai`) are used only for orphan agents; bare names
+  resolve to the local awesome-claude-agents copy. See `references/dispatch-table.md` for resolution & collisions.
 - **Fan-out:** reviewers run via `parallel(...)` inside the Workflow; the runtime caps concurrency (≤ min(16, cores−2)).
 - **Structured output:** reviewers return `findings[]` via JSON schema; the writer/fixer return `{path,size,head,tail}`
   snapshots so the orchestrator needs no filesystem access.
@@ -95,8 +96,8 @@ When a specialist writes or edits code, run the Review Loop. Never report done o
 (the Workflow script + schemas + per-step detail) is `references/review-loop.md`; the contract below is what it
 guarantees and when you escalate.
 
-- **Reviewers:** always `code-reviewer` (mandatory). Add in parallel whichever supplementary reviewer's trigger
-  fires: `voltagent-qa-sec:security-auditor` (auth/secrets/user-input/file-I/O/network/serialization/SQL);
+- **Reviewers:** always `comprehensive-review:code-reviewer` (mandatory). Add in parallel whichever supplementary
+  reviewer's trigger fires: `comprehensive-review:security-auditor` (auth/secrets/user-input/file-I/O/network/serialization/SQL);
   `silent-failure-hunter` (error handling / external I/O / background/async/outbox/retry paths);
   `comment-analyzer` (comment or docstring changes — this repo's functions carry Russian docstrings).
 - **Output:** reviewers return `findings[]` (severity, file, line, first8, explanation); empty array = clean.
@@ -120,18 +121,18 @@ ORIGINAL writer, given this iteration's findings only (each tagged `FP: file|lin
 ## Rules
 
 - **Stack-specific beats generic.** Don't send a Django change to `python-pro` when `django-pro` exists.
-- **Always review.** Every code-changing dispatch enters the Review Loop with `code-reviewer`; add supplementary
-  reviewers when their triggers fire.
+- **Always review.** Every code-changing dispatch enters the Review Loop with `comprehensive-review:code-reviewer`;
+  add supplementary reviewers when their triggers fire.
 - **Parallel but capped.** Reviewers fan out inside the Workflow (`parallel(...)`, runtime cap ≤ min(16, cores−2)).
   Dispatch budget is per code-changing branch: up to **16** dispatches each (writer + ≤3 iterations × (code-reviewer
   + ≤3 supplementary + fixer)). Across all branches in one task, pause and confirm before crossing **30** total.
-- **Reviewers can write.** voltagent reviewers inherit Write/Edit/Bash; for a hard read-only guarantee, say so in
+- **Reviewers can write.** wshobson reviewers inherit Write/Edit/Bash; for a hard read-only guarantee, say so in
   the prompt ("Read-only review. Do not edit files or run shell commands. Output the report only").
 - **Ground in docs before dispatching** (context7 first) — your job, not a subagent's. Don't dispatch an architect
   for "is FastAPI's lifespan still recommended?" — answer it from context7 yourself, then proceed.
-- **Name collisions.** `code-reviewer`, `backend-developer`, `frontend-developer` exist in both voltagent and the
-  local library; a bare name resolves to the local copy — namespace the voltagent variant. Details:
-  `references/dispatch-table.md`.
+- **Name collisions.** wshobson duplicates the same agent across bundles, and `code-reviewer` also exists locally —
+  always dispatch the namespaced bundle form (`comprehensive-review:code-reviewer`), never a bare colliding name.
+  Details: `references/dispatch-table.md`.
 - **Don't hide disagreement.** If two reviewers disagree, surface both views; don't pick a side silently.
 - **Cheapest fit.** Don't dispatch an architect for a variable-naming question.
 - **You orchestrate, you don't implement.** Even one-line fixes go through a specialist — implementing inline

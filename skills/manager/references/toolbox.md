@@ -59,13 +59,13 @@ You (the orchestrator) call these directly — they are not subagents. Prefer th
 
 ## Plugins & the full agent inventory
 
-Three marketplaces, eight plugins, plus local (non-plugin) agents under `~/.claude/agents`. The *Source* column of the dispatch tables is also the dispatch namespace (see `dispatch-table.md` → "Dispatch-name resolution").
+Three marketplaces, plus local (non-plugin) agents under `~/.claude/agents`. The *Source* column of the dispatch tables is also the dispatch namespace (see `dispatch-table.md` → "Dispatch-name resolution"). **wshobson (`claude-code-workflows`) is the primary agent set since the 2026-06-25 voltagent→wshobson migration; voltagent is kept only for orphan agents.**
 
-| Marketplace (repo) | Plugins it provides |
+| Marketplace (repo) | Installed plugins |
 |---|---|
 | `claude-plugins-official` (anthropics/claude-plugins-official) | `superpowers` (skills + the using-superpowers framework), `context7` (MCP server) |
-| `voltagent-subagents` (VoltAgent/awesome-claude-code-subagents) | `voltagent-core-dev` (~12 agents), `voltagent-data-ai` (~14), `voltagent-infra` (~17), `voltagent-qa-sec` (~18) |
-| `claude-code-workflows` (wshobson/agents) | `python-development` (3 agents + 16 skills), `agent-orchestration` (`context-manager` agent) |
+| `claude-code-workflows` (wshobson/agents) — **primary** | 83-bundle marketplace (191 agents). Installed bundles: `python-development`, `agent-orchestration`, `backend-development`, `frontend-mobile-development`, `ui-design`, `cloud-infrastructure`, `kubernetes-operations`, `cicd-automation`, `incident-response`, `comprehensive-review`, `data-engineering`, `machine-learning-ops`, `llm-application-dev`, `database-cloud-optimization`. wshobson **duplicates agents across bundles** — dispatch by the installed bundle's name. Install more bundles on demand (see `dispatch-table.md` → "Other stacks"). |
+| `voltagent-subagents` (VoltAgent/awesome-claude-code-subagents) — **orphans only** | `voltagent-qa-sec` (kept for `penetration-tester`, `powershell-security-hardening`, `chaos-engineer`, `qa-expert`, `compliance-auditor`, `gdpr-ccpa-compliance`), `voltagent-data-ai` (kept for `postgres-pro`). `voltagent-core-dev` and `voltagent-infra` were **uninstalled**. |
 
 **Local, non-plugin (`~/.claude/agents`):**
 - `awesome-claude-agents/` — a cloned agent library (bare names): core (`code-archaeologist`, `code-reviewer`, `documentation-specialist`, `performance-optimizer`), orchestrators (`project-analyst`, `team-configurator`, `tech-lead-orchestrator`), universal (`api-architect`, `backend-developer`, `frontend-developer`, `tailwind-frontend-expert`), and the stack specialists listed in `dispatch-table.md` → "Other stacks".

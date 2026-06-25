@@ -23,7 +23,7 @@ parameter. If you tweak it, iterate with `{scriptPath, resumeFromRunId}`. Do NOT
 
 ## Reference Review Loop Workflow
 
-Run this via the Workflow tool, passing `args = { task, writer, reviewer, supplementary, scopeHint, grounding }`. `task` = the user's request verbatim; `writer`/`reviewer` = resolved `agentType` strings; `supplementary` = `[{type, label}]` for whichever of `silent-failure-hunter` / `comment-analyzer` / `voltagent-qa-sec:security-auditor` fire (Step A triggers); `grounding` = the documentation grounding brief you assembled (see `grounding.md`), passed verbatim into writer, fixer, and reviewer prompts. Iterate the script with `{scriptPath, resumeFromRunId}` if you tweak it.
+Run this via the Workflow tool, passing `args = { task, writer, reviewer, supplementary, scopeHint, grounding }`. `task` = the user's request verbatim; `writer`/`reviewer` = resolved `agentType` strings; `supplementary` = `[{type, label}]` for whichever of `silent-failure-hunter` / `comment-analyzer` / `comprehensive-review:security-auditor` fire (Step A triggers); `grounding` = the documentation grounding brief you assembled (see `grounding.md`), passed verbatim into writer, fixer, and reviewer prompts. Iterate the script with `{scriptPath, resumeFromRunId}` if you tweak it.
 
 ```js
 export const meta = {
