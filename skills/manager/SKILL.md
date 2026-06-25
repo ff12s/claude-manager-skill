@@ -1,6 +1,6 @@
 ---
 name: manager
-description: Use this skill when starting a multi-step task that touches more than one specialty (frontend + backend, code + infra, code + tests, data pipeline + DB tuning, etc.), or when the user explicitly says "use manager" / "orchestrate" / `/manager`. The skill turns Claude into a disciplined tech-lead orchestrator that picks the right specialist subagent from the installed plugins, runs an iterative Review Loop with 5 guards against pathological loops, and synthesizes one final answer instead of doing the work ad-hoc.
+description: Use this skill when starting a multi-step task that touches more than one specialty (frontend + backend, code + infra, code + tests, data pipeline + DB tuning, etc.), or when the user explicitly says "use manager" / "orchestrate" / `/manager`. The skill turns Claude into a disciplined tech-lead orchestrator that picks the right specialist subagent from the installed plugins, runs an iterative Review Loop that re-reviews the change fresh and independently each round until it is clean (hard-capped at 10 iterations), and synthesizes one final answer instead of doing the work ad-hoc.
 ---
 
 # Manager — orchestrate with a Review Loop
@@ -109,36 +109,46 @@ When a specialist writes or edits code, run the Review Loop. Never report done o
 (the Workflow script + schemas + per-step detail) is `references/review-loop.md`; the contract below is what it
 guarantees and when you escalate.
 
-- **Reviewers:** always `comprehensive-review:code-reviewer` (mandatory). Add in parallel whichever supplementary
-  reviewer's trigger fires: `comprehensive-review:security-auditor` (auth/secrets/user-input/file-I/O/network/serialization/SQL);
-  `silent-failure-hunter` (error handling / external I/O / background/async/outbox/retry paths);
-  `comment-analyzer` (comment or docstring changes — this repo's functions carry Russian docstrings).
-- **Output:** reviewers return `findings[]` (severity, file, line, first8, explanation); empty array = clean.
-  A finding's fingerprint is `file|line|first8`. Must-fix = critical or high (from any reviewer).
-- **Exit & guards (first match wins):**
+**Model:** `write → [ fresh re-review → if must-fix: fix ]` looping **until a review is clean**, capped at **10
+iterations**. Each re-review is a brand-new reviewer that re-reads the whole change **independently** — with no
+knowledge of prior rounds or that a fix happened, as if a fresh person is seeing the feature for the first time.
+When the loop returns ready (`stoppedBy === null`), the change is mergeable — you (the orchestrator) merge; the
+script does not.
 
-| Guard | Fires when → action |
+- **Reviewers (fresh each round):** always `comprehensive-review:code-reviewer` (mandatory). Add in parallel
+  whichever supplementary reviewer's trigger fires: `comprehensive-review:security-auditor`
+  (auth/secrets/user-input/file-I/O/network/serialization/SQL); `silent-failure-hunter` (error handling /
+  external I/O / background/async/outbox/retry paths); `comment-analyzer` (comment or docstring changes — this
+  repo's functions carry Russian docstrings). Reviewers receive only the task + grounding — **never** prior
+  findings or the fact that a fix happened.
+- **Output:** reviewers return `findings[]` (severity, file, line, first8, explanation); empty array = clean. The
+  fixer (the ORIGINAL writer) gets this round's findings only, each tagged `FP: file|line|first8`.
+- **Ready gate = no must-fix (critical/high).** Medium/low don't block merge (note them); gating on zero findings
+  of any severity never converges, since a fresh reviewer almost always raises a low-severity nit.
+- **Stop conditions (first match wins):**
+
+| Condition | Fires when → action |
 |---|---|
-| PRE-0 health | mandatory reviewer returns null/garbage → STOP, report "reviewer health check failed" |
-| EXIT-OK | must-fix count == 0 → DONE |
-| 1 hard cap | iteration ≥ 3 → STOP |
-| 2 sticky | a prior-iteration fingerprint recurs → STOP |
-| 3 no-progress | iter ≥ 2 and must-fix ≥ prior must-fix → STOP |
-| 4 regression | iter ≥ 2 and a new critical/high appeared → STOP |
-| 5 diff-stagnation | iter ≥ 2 and the changed-file snapshot is byte-equal to prior → STOP |
+| PRE-GUARD-0 (reviewer health) | mandatory reviewer returns null/garbage → STOP, escalate "reviewer health check failed" |
+| EXIT-READY | must-fix count == 0 → DONE, ready to merge |
+| HARD CAP | iteration ≥ 10 with must-fix remaining → STOP, escalate (writer can't converge) |
+| STAGNATION | iteration ≥ 2 and the fixer returned byte-identical files → STOP, escalate (writer stuck) |
 
 A supplementary reviewer returning null does NOT fail the loop — record it unavailable, drop its findings, proceed.
-Any guard firing means STOP and escalate to the user (name the guard, quote remaining must-fix). The fixer is the
-ORIGINAL writer, given this iteration's findings only (each tagged `FP: file|line|first8`) plus the accepted list.
+A stop (HARD CAP / STAGNATION / PRE-GUARD-0) means escalate to the user (name the condition, quote remaining
+must-fix). The older sticky / no-progress / regression guards are intentionally gone — they assumed history-aware
+reviews and aborted after one fix attempt, which contradicts the loop-until-clean model.
 
 ## Rules
 
 - **Stack-specific beats generic.** Don't send a Django change to `python-pro` when `django-pro` exists.
 - **Always review.** Every code-changing dispatch enters the Review Loop with `comprehensive-review:code-reviewer`;
   add supplementary reviewers when their triggers fire.
-- **Parallel but capped.** Reviewers fan out inside the Workflow (`parallel(...)`, runtime cap ≤ min(16, cores−2)).
-  Dispatch budget is per code-changing branch: up to **16** dispatches each (writer + ≤3 iterations × (code-reviewer
-  + ≤3 supplementary + fixer)). Across all branches in one task, pause and confirm before crossing **30** total.
+- **Parallel but capped — and the loop is expensive.** Reviewers fan out inside the Workflow (`parallel(...)`,
+  runtime cap ≤ min(16, cores−2)). With the 10-iteration cap, one stuck branch can cost ~`writer + 10×(reviewers +
+  fixer)` ≈ 30–40 dispatches, so the loop usually exits ready well before then but the worst case is real. Across
+  all branches in one task, **pause and confirm with the user before crossing ~40 total dispatches**, and prefer a
+  direct edit + read-only review for trivial/mechanical changes rather than spending the full loop.
 - **Reviewers can write.** wshobson reviewers inherit Write/Edit/Bash; for a hard read-only guarantee, say so in
   the prompt ("Read-only review. Do not edit files or run shell commands. Output the report only").
 - **Ground in docs before dispatching** (context7 first) — your job, not a subagent's. Don't dispatch an architect
