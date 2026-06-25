@@ -127,29 +127,33 @@ knowledge of prior rounds or that a fix happened, as if a fresh person is seeing
 When the loop returns ready (`stoppedBy === null`), the change is mergeable — you (the orchestrator) merge; the
 script does not.
 
-- **Reviewers (fresh each round):** always `comprehensive-review:code-reviewer` (mandatory). Add in parallel
+- **Reviewers (fresh each round):** always `comprehensive-review:code-reviewer` (mandatory). Add in **parallel**
   whichever supplementary reviewer's trigger fires: `comprehensive-review:security-auditor`
   (auth/secrets/user-input/file-I/O/network/serialization/SQL); `silent-failure-hunter` (error handling /
   external I/O / background/async/outbox/retry paths); `comment-analyzer` (comment or docstring changes — this
-  repo's functions carry Russian docstrings). Reviewers receive only the task + grounding — **never** prior
-  findings or the fact that a fix happened.
+  repo's functions carry Russian docstrings). When `TESTER` is set, a **test-runner** agent also fires in
+  parallel each round: it runs the project's test suite and reports failures as `critical` findings. Reviewers
+  receive only the task + grounding — **never** prior findings or the fact that a fix happened.
 - **Output:** reviewers return `findings[]` (severity, file, line, first8, explanation); empty array = clean. The
-  fixer (the ORIGINAL writer) gets this round's findings only, each tagged `FP: file|line|first8`.
-- **Ready gate = no must-fix (critical/high).** Medium/low don't block merge (note them); gating on zero findings
-  of any severity never converges, since a fresh reviewer almost always raises a low-severity nit.
+  fixer (the ORIGINAL writer) gets this round's findings tagged as `MUST-FIX`, `REGRESSION`, or severity.
+- **Ready gate = no must-fix (critical/high) AND no regression.** A **regression** is a finding whose fingerprint
+  (`file|line|first8`) did NOT appear in the previous round's findings — i.e., the fixer introduced it. Fingerprint
+  tracking is cross-round; iteration 1 has no prior round so regressions are never detected there. A medium or low
+  finding that persists with the same fingerprint across rounds is NOT a regression and does not block merge.
+- **Fixer rule:** fix all MUST-FIX and REGRESSION items. **Do NOT modify existing tests to make them pass** — fix
+  the implementation instead. Tests change only when functionality changes.
 - **Stop conditions (first match wins):**
 
 | Condition | Fires when → action |
 |---|---|
 | PRE-GUARD-0 (reviewer health) | mandatory reviewer returns null/garbage → STOP, escalate "reviewer health check failed" |
-| EXIT-READY | must-fix count == 0 → DONE, ready to merge |
-| HARD CAP | iteration ≥ 10 with must-fix remaining → STOP, escalate (writer can't converge) |
+| EXIT-READY | no must-fix AND no regression (no new fingerprints vs prior round) → DONE, ready to merge |
+| HARD CAP | iteration ≥ 10 with findings remaining → STOP, escalate (writer can't converge) |
 | STAGNATION | iteration ≥ 2 and the fixer returned byte-identical files → STOP, escalate (writer stuck) |
 
-A supplementary reviewer returning null does NOT fail the loop — record it unavailable, drop its findings, proceed.
-A stop (HARD CAP / STAGNATION / PRE-GUARD-0) means escalate to the user (name the condition, quote remaining
-must-fix). The older sticky / no-progress / regression guards are intentionally gone — they assumed history-aware
-reviews and aborted after one fix attempt, which contradicts the loop-until-clean model.
+A supplementary reviewer or test-runner returning null does NOT fail the loop — record it unavailable, drop its
+findings, proceed. A stop (HARD CAP / STAGNATION / PRE-GUARD-0) means escalate to the user (name the condition,
+quote remaining findings).
 
 ## Rules
 

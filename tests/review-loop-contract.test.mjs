@@ -52,9 +52,9 @@ test('contract documents loop-until-clean with a 10-iteration hard cap', () => {
   assert.match(contract, /cap/i);
 });
 
-test('the stop-conditions table lists the real conditions, not the removed guards', () => {
+test('the stop-conditions table lists the real conditions; obsolete guard names (sticky, no-progress) are gone', () => {
   assert.ok(contract);
-  // Scope to the markdown table rows: the ACTIVE stop conditions. Prose may still explain what was removed.
+  // Scope to the markdown table rows: the ACTIVE stop conditions.
   const tableText = contract
     .split('\n')
     .filter((l) => l.trim().startsWith('|'))
@@ -63,11 +63,24 @@ test('the stop-conditions table lists the real conditions, not the removed guard
   assert.match(tableText, /EXIT-READY/i);
   assert.match(tableText, /HARD CAP/i);
   assert.match(tableText, /STAGNATION/i);
+  // These named guards were removed and must not reappear as standalone table entries.
   assert.doesNotMatch(tableText, /sticky/i);
   assert.doesNotMatch(tableText, /no-progress/i);
-  assert.doesNotMatch(tableText, /regression/i);
+  // "regression" is now intentionally part of EXIT-READY description (fingerprint-based detection).
 });
 
 test('skill no longer overclaims "5 guards" anywhere (incl. frontmatter description)', () => {
   assert.doesNotMatch(body, /5 guards/i);
+});
+
+test('ready gate: no must-fix AND no regression (new fingerprints vs prior round)', () => {
+  assert.ok(contract, 'contract section missing');
+  assert.match(contract, /regression/i, 'contract must mention regression concept');
+  assert.match(contract, /fingerprint/i, 'contract must mention fingerprint-based detection');
+});
+
+test('test-runner: contract documents running project tests in parallel with reviewers', () => {
+  assert.ok(contract, 'contract section missing');
+  assert.match(contract, /test/i, 'contract must mention test runner');
+  assert.match(contract, /parallel/i, 'contract must mention running tests in parallel with reviewers');
 });

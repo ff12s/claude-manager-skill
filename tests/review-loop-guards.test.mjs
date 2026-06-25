@@ -129,6 +129,72 @@ test('independence: review dispatches never receive prior findings (no FP: tags 
   }
 });
 
+// --- Regression guard: fingerprint-based, any severity ---
+// A "regression" = a finding whose fingerprint (file|line|first8) did NOT appear in the
+// previous round's review. Only such findings block EXIT-READY; a medium that persists
+// across rounds with the same fingerprint is NOT a regression and does not block exit.
+
+const M = (file, line, tag) => ({ severity: 'medium', file, line, first8: `${tag}`, explanation: 'e' });
+const L = (file, line, tag) => ({ severity: 'low', file, line, first8: `${tag}`, explanation: 'e' });
+
+test('no-regression: medium with same fingerprint persisting after fix does NOT block EXIT-READY', async () => {
+  // Round 1: must-fix + medium M. priorFPs = {fp(H), fp(M)}.
+  // Round 2: same medium M (same fingerprint) → hasRegression=false → EXIT-READY at iter 2.
+  const res = await runScenario({
+    writer: snap(10),
+    rounds: [
+      { reviews: [{ findings: [H('a.py', 1), M('b.py', 2, 'orig medium')] }], fix: snap(20) },
+      { reviews: [{ findings: [M('b.py', 2, 'orig medium')] }] },  // same FP as round 1
+    ],
+  });
+  assert.equal(res.stoppedBy, null, `expected clean exit, got: ${res.stoppedBy}`);
+  assert.equal(res.iterations, 2, 'same-fingerprint medium must not block EXIT-READY');
+});
+
+test('regression: new medium introduced by fixer blocks EXIT-READY, loop continues to fix it', async () => {
+  // Round 1: must-fix H. priorFPs = {fp(H)}.
+  // Round 2: no must-fix, but NEW medium N (fingerprint not in priorFPs) → regression → fix dispatched.
+  // Round 3: clean → EXIT-READY at iter 3.
+  const res = await runScenario({
+    writer: snap(10),
+    rounds: [
+      { reviews: [{ findings: [H('a.py', 1)] }], fix: snap(20) },
+      { reviews: [{ findings: [M('b.py', 2, 'new medium')] }], fix: snap(30) },  // new FP → regression
+      { reviews: [clean] },
+    ],
+  });
+  assert.equal(res.stoppedBy, null, `expected clean exit, got: ${res.stoppedBy}`);
+  assert.equal(res.iterations, 3, 'regression must cause loop to continue and fix before EXIT-READY');
+});
+
+test('regression: new low introduced by fixer also blocks EXIT-READY', async () => {
+  const res = await runScenario({
+    writer: snap(10),
+    rounds: [
+      { reviews: [{ findings: [H('a.py', 1)] }], fix: snap(20) },
+      { reviews: [{ findings: [L('c.py', 5, 'new low')] }], fix: snap(30) },  // new FP → regression
+      { reviews: [clean] },
+    ],
+  });
+  assert.equal(res.stoppedBy, null, `expected clean exit, got: ${res.stoppedBy}`);
+  assert.equal(res.iterations, 3, 'low-severity regression must also block EXIT-READY');
+});
+
+test('HARD CAP fires when regression findings keep appearing across 10 iterations', async () => {
+  // Each round: must-fix fixed but fixer introduces a new medium with a new fingerprint.
+  // priorFPs always lacks the new medium → hasRegression=true → loop continues until cap.
+  const rounds = [
+    { reviews: [{ findings: [H('a.py', 1), M('b.py', 2, 'm0')] }], fix: snap(101) },  // round 1: must-fix
+    ...Array.from({ length: 10 }, (_, i) => ({
+      reviews: [{ findings: [M(`f${i}.py`, i + 1, `m${i + 1}`)] }],  // new medium each round
+      fix: snap(102 + i),
+    })),
+  ];
+  const res = await runScenario({ writer: snap(10), rounds });
+  assert.match(res.stoppedBy, /HARD CAP/);
+  assert.equal(res.iterations, 10);
+});
+
 // --- WRITER-EMPTY guard ---
 
 test('WRITER-EMPTY: writer returns empty snapshot → stops before first review, dispatches=1', async () => {
