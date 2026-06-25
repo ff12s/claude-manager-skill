@@ -1,0 +1,73 @@
+# Toolbox inventory — skills, MCP servers, plugins & agents
+
+Read this when you need the full inventory behind the body's compact toolbox/priority notes
+(see `../SKILL.md` → "Toolbox priority"). The body holds the superpowers-first principle; this holds the lists.
+
+## Contents
+- Skills you orchestrate with (superpowers / python-development / local / built-in)
+- MCP servers available
+- Plugins & the full agent inventory
+
+## Skills you orchestrate with
+
+Skills are invoked with the **Skill tool** (not dispatched as agents) and define *how* you work. **Superpowers first** (see `../SKILL.md` → "Toolbox priority").
+
+### superpowers (claude-plugins-official) — process discipline, always first
+| Skill | Use when |
+|---|---|
+| `superpowers:brainstorming` | any creative / new work — explore intent before building |
+| `superpowers:writing-plans` | turning a spec into a step-by-step plan |
+| `superpowers:executing-plans` | running a written plan in a separate session with checkpoints |
+| `superpowers:subagent-driven-development` | executing plan tasks in the current session |
+| `superpowers:dispatching-parallel-agents` | 2+ independent tasks, no shared state |
+| `superpowers:test-driven-development` | before writing any feature/bugfix code (RED→GREEN→REFACTOR) |
+| `superpowers:systematic-debugging` | any bug, test failure, or unexpected behavior |
+| `superpowers:requesting-code-review` | completing work / before merge |
+| `superpowers:receiving-code-review` | acting on review feedback — verify, don't blindly comply |
+| `superpowers:verification-before-completion` | before claiming done / fixed / passing |
+| `superpowers:using-git-worktrees` | isolating risky feature work |
+| `superpowers:finishing-a-development-branch` | merge / PR / cleanup decision |
+| `superpowers:writing-skills`, `superpowers:using-superpowers` | authoring skills / the skill framework itself |
+
+### python-development (claude-code-workflows) — Python house-style reference
+Coding-standard reference skills; load the matching one so a Python specialist's output fits house style: `async-python-patterns`, `python-anti-patterns`, `python-background-jobs`, `python-code-style`, `python-configuration`, `python-design-patterns`, `python-error-handling`, `python-observability`, `python-packaging`, `python-performance-optimization`, `python-project-structure`, `python-resilience`, `python-resource-management`, `python-testing-patterns`, `python-type-safety`, `uv-package-manager`.
+
+### Local skills (`~/.claude/skills`)
+| Skill | Use for |
+|---|---|
+| `codebase-memory` | knowledge-graph code tools (pairs with the `codebase-memory-mcp` server) |
+| `architecture-decision-records` | capture an ADR when a real architectural decision is made |
+| `context-budget` | audit what's eating the context window (agents / skills / MCP) |
+| `playwright-cli` | drive a browser / run Playwright tests |
+| `deep-research` | multi-source, fact-checked research report |
+| `manager` | this skill |
+
+### Built-in Claude Code skills/commands
+`code-review`, `simplify`, `security-review`, `review`, `verify`, `run`, `init`, `loop`, `schedule`, `update-config`, `keybindings-help`, `fewer-permission-prompts`, `claude-api`. User-triggered harness commands — surface them to the user when relevant; they are not dispatch targets.
+
+## MCP servers available
+
+You (the orchestrator) call these directly — they are not subagents. Prefer them over raw Read/Grep for the jobs below.
+
+| Server | Scope | Key tools | Use for |
+|---|---|---|---|
+| `codebase-memory-mcp` | global | `index_status`, `index_repository`, `search_graph`, `get_code_snippet`, `trace_path`, `search_code`, `get_architecture`, `query_graph` | indexed code discovery — first choice for any code-structure question |
+| `context7` (context7 plugin) | global | `mcp__plugin_context7_context7__resolve-library-id`, `…__query-docs` | **mandatory grounding** — current library/framework docs **and best practices**; query every touched library twice (API + best practices); your job, not a subagent's (see `grounding.md`) |
+| `postgres-statuses` | global | `mcp__postgres-statuses__query` | run SQL against the status-service Postgres for inspection (read-only intent) |
+| `ide` | built-in | `mcp__ide__getDiagnostics` | LSP / type diagnostics for open files |
+| `github` | project (`1642_20_status`) | GitHub PR / issue / API tools | GitHub ops — may be dormant if the server isn't connected this session |
+
+## Plugins & the full agent inventory
+
+Three marketplaces, eight plugins, plus local (non-plugin) agents under `~/.claude/agents`. The *Source* column of the dispatch tables is also the dispatch namespace (see `dispatch-table.md` → "Dispatch-name resolution").
+
+| Marketplace (repo) | Plugins it provides |
+|---|---|
+| `claude-plugins-official` (anthropics/claude-plugins-official) | `superpowers` (skills + the using-superpowers framework), `context7` (MCP server) |
+| `voltagent-subagents` (VoltAgent/awesome-claude-code-subagents) | `voltagent-core-dev` (~12 agents), `voltagent-data-ai` (~14), `voltagent-infra` (~17), `voltagent-qa-sec` (~18) |
+| `claude-code-workflows` (wshobson/agents) | `python-development` (3 agents + 16 skills), `agent-orchestration` (`context-manager` agent) |
+
+**Local, non-plugin (`~/.claude/agents`):**
+- `awesome-claude-agents/` — a cloned agent library (bare names): core (`code-archaeologist`, `code-reviewer`, `documentation-specialist`, `performance-optimizer`), orchestrators (`project-analyst`, `team-configurator`, `tech-lead-orchestrator`), universal (`api-architect`, `backend-developer`, `frontend-developer`, `tailwind-frontend-expert`), and the stack specialists listed in `dispatch-table.md` → "Other stacks".
+- `comment-analyzer` — reviews comment accuracy / comment-rot.
+- `silent-failure-hunter` — finds swallowed errors, bad fallbacks, missing error propagation.
