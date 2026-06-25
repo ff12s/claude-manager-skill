@@ -128,3 +128,38 @@ test('independence: review dispatches never receive prior findings (no FP: tags 
     assert.doesNotMatch(p, /A review of your change found/, 'reviewer must not be told a fix happened');
   }
 });
+
+// --- WRITER-EMPTY guard ---
+
+test('WRITER-EMPTY: writer returns empty snapshot → stops before first review, dispatches=1', async () => {
+  const res = await runScenario({ writer: { snapshot: [] }, rounds: [] });
+  assert.match(res.stoppedBy, /WRITER-EMPTY/);
+  assert.equal(res.iterations, 0, 'loop must not start');
+  assert.equal(res.dispatches, 1, 'no reviewer should be dispatched');
+});
+
+test('WRITER-EMPTY: writer returns null → stops before first review', async () => {
+  const res = await runScenario({ writer: null, rounds: [] });
+  assert.match(res.stoppedBy, /WRITER-EMPTY/);
+  assert.equal(res.iterations, 0, 'loop must not start');
+});
+
+// --- static: inline constants, no args.* ---
+
+test('static: script uses inline constants, not args.* — prevents silent undefined on Workflow args delivery failure', () => {
+  assert.doesNotMatch(SRC, /\bargs\.\w+/, 'script must not reference args.* properties (inline as JS constants instead)');
+});
+
+test('static: script defines all seven fill-in constants (WRITER, REVIEWER, SUPPLEMENTARY, WRITER_POWER, TASK, GROUNDING, SCOPE_HINT)', () => {
+  assert.match(SRC, /const WRITER\s*=/);
+  assert.match(SRC, /const REVIEWER\s*=/);
+  assert.match(SRC, /const SUPPLEMENTARY\s*=/);
+  assert.match(SRC, /const WRITER_POWER\s*=/);
+  assert.match(SRC, /const TASK\s*=/);
+  assert.match(SRC, /const GROUNDING\s*=/);
+  assert.match(SRC, /const SCOPE_HINT\s*=/);
+});
+
+test('static: stop-conditions table in review-loop.md documents WRITER-EMPTY guard', () => {
+  assert.match(md, /WRITER-EMPTY/);
+});

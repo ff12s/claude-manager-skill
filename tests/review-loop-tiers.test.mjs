@@ -30,6 +30,18 @@ const clean = { findings: [] };
 // One round of must-fix (forces a fixer dispatch) then a clean round (exit). Exercises writer, reviewers, fixer.
 const DEFAULT_ROUNDS = [{ reviews: [{ findings: [H('a.py', 1)] }], fix: snap(20) }, { reviews: [clean] }];
 
+/** Inject overrides into the extracted SRC as constant replacements (no args passing — inline-constants design). */
+function makeSrc({ writerPower, supplementary } = {}) {
+  let src = SRC;
+  if (writerPower) {
+    src = src.replace(/const WRITER_POWER\s*=\s*\{[^}]+\}[^\n]*/, `const WRITER_POWER = ${JSON.stringify(writerPower)}`);
+  }
+  if (supplementary && supplementary.length) {
+    src = src.replace(/const SUPPLEMENTARY\s*=\s*\[\][^\n]*/, `const SUPPLEMENTARY = ${JSON.stringify(supplementary)}`);
+  }
+  return src;
+}
+
 async function run({ writerPower, supplementary = [], rounds = DEFAULT_ROUNDS } = {}) {
   const calls = [];
   let round = 0;
@@ -51,8 +63,9 @@ async function run({ writerPower, supplementary = [], rounds = DEFAULT_ROUNDS } 
     }
     return clean;
   };
-  const args = { task: 't', writer: 'w', reviewer: 'r', supplementary, scopeHint: '', grounding: '', writerPower };
-  await makeRun()(agent, parallel, phase, args);
+  const src = makeSrc({ writerPower, supplementary });
+  const runFn = new AsyncFunction('agent', 'parallel', 'phase', src);
+  await runFn(agent, parallel, phase);
   return calls;
 }
 
@@ -79,7 +92,7 @@ test('mandatory code-reviewer is dispatched on opus @ xhigh', async () => {
   assert.equal(r.effort, 'xhigh');
 });
 
-test('writer escalates to opus @ xhigh when args.writerPower says so', async () => {
+test('writer escalates to opus @ xhigh when WRITER_POWER constant set to {opus, xhigh}', async () => {
   const calls = await run({ writerPower: { model: 'opus', effort: 'xhigh' } });
   const w = find(calls, (c) => c.phase === 'Write');
   assert.equal(w.model, 'opus');
