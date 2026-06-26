@@ -100,16 +100,20 @@ One Workflow call per code-changing branch. The executable script, tiers, and re
 ## Process
 
 1. Understand intent. If ambiguous, ask ONE clarifying question max before dispatching, then commit.
-2. Scan the repo only as much as needed to pick specialists. Prefer MCP tools over raw Read/Grep/Glob for code:
-   - **Symbols & references (prefer jetbrains over grep):** `jetbrains` MCP first — `search_symbol`,
-     `get_symbol_info`, `find_usages`, `search_in_files_by_text`. Uses the live PyCharm IDE index;
-     faster and more accurate than grep for code-structure questions (definitions, callers, type info).
-     Fall back to `codebase-memory-mcp` when PyCharm is not open or the server is unavailable.
-   - **Code graph:** `mcp__codebase-memory-mcp__*` (indexed) — `index_status` → `index_repository` if needed;
-     `search_graph`, `get_code_snippet`, `trace_path`, `search_code`, `get_architecture`, `query_graph`.
-   - **Library docs:** context7 is mandatory — `resolve-library-id` then `query-docs` twice per library
+2. Scan the repo only as much as needed to pick specialists. **Strict priority for code search — try in order, fall back only on tool failure:**
+   1. **`jetbrains` MCP — always try first** for any code-structure question: `search_symbol` (semantic by
+      name fragment, use `include_external=true` for SDK/libs), `search_in_files_by_text` / `search_in_files_by_regex`
+      (text/regex in project), `get_symbol_info` (type + docs + declaration at line:col), `get_file_problems`
+      (IDE inspections), `rename_refactoring` (safe rename across all refs), `read_file` (reads into JARs,
+      decompiles .class). Always pass `projectPath`. If the call errors or MCP is unavailable → fall back to 2.
+   2. **`codebase-memory-mcp` — fallback when jetbrains is down:** `search_graph`, `get_code_snippet`,
+      `trace_path`, `search_code`, `get_architecture`, `query_graph`. Check `index_status` first; run
+      `index_repository` if stale.
+   3. **Raw `Grep`/`Read`/`Glob` — last resort only** when both MCP servers fail, or for non-code files
+      (config, YAML, text). Never reach for Grep to look up a symbol or find references if jetbrains is reachable.
+   - **Library docs (always):** context7 is mandatory — `resolve-library-id` then `query-docs` twice per library
      (API + best practices), pinned to the repo's version (see Grounding gate).
-   - **Other MCP servers** (postgres, github, …) when relevant. Fall back to raw Read/Grep/Glob for non-code files.
+   - **Other MCP servers** (postgres, github, …) when relevant to the task.
    - If the `cbm-code-discovery-gate` hook blocks a Read/Grep/Glob, switch to the suggested CBM tool or simply
      retry (the hook is one-shot per session). Don't give up; don't ask whether to retry.
 3. **Ground, then decompose.** Assemble the grounding brief, pass it as `args.grounding`, then split into subtasks;

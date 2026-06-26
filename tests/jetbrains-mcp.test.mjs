@@ -42,7 +42,7 @@ function sectionAfter(md, headingRegex) {
   return lines.slice(start, end).join('\n');
 }
 
-const mcpSection = sectionAfter(toolbox, /MCP servers/i);
+const mcpSection = sectionAfter(toolbox, /MCP servers available/i);
 const processSection = sectionAfter(body, /^## Process/);
 
 // ─── toolbox.md — MCP servers table ───────────────────────────────────────
@@ -76,6 +76,19 @@ test('toolbox.md jetbrains row references the live IDE index (not raw grep)', ()
     'toolbox.md must explain that jetbrains MCP uses the live IDE index');
 });
 
+// ─── toolbox.md — jetbrains is the FIRST MCP row ─────────────────────────
+
+test('toolbox.md lists jetbrains as the first MCP server (highest priority)', () => {
+  assert.ok(mcpSection, 'MCP servers section missing');
+  // jetbrains row must appear before codebase-memory-mcp row
+  const jbIdx = mcpSection.indexOf('jetbrains');
+  const cbmIdx = mcpSection.indexOf('codebase-memory-mcp');
+  assert.ok(jbIdx !== -1, 'jetbrains row missing from MCP table');
+  assert.ok(cbmIdx !== -1, 'codebase-memory-mcp row missing from MCP table');
+  assert.ok(jbIdx < cbmIdx,
+    'jetbrains must appear BEFORE codebase-memory-mcp in the MCP table (highest priority first)');
+});
+
 // ─── SKILL.md — Process section prioritises IDE tools for symbol search ──
 
 test('SKILL.md Process section exists', () => {
@@ -90,7 +103,38 @@ test('SKILL.md Process section mentions jetbrains MCP as preferred for symbol/co
 
 test('SKILL.md Process section puts jetbrains before grep for code-structure questions', () => {
   assert.ok(processSection, 'Process section missing');
-  // Must explicitly say to prefer jetbrains over grep/read for symbols
   assert.match(processSection, /prefer.*jetbrains|jetbrains.*prefer|jetbrains.*before.*grep|symbol.*jetbrains/i,
     'SKILL.md must instruct the orchestrator to prefer jetbrains MCP over grep for symbol questions');
+});
+
+// ─── SKILL.md — explicit fallback chain: jetbrains → codebase-memory → Grep ──
+
+test('SKILL.md Process section documents an explicit fallback chain', () => {
+  assert.ok(processSection, 'Process section missing');
+  // Must mention "fallback" or "fall back" in relation to the code-search priority
+  assert.match(processSection, /fall.?back|unavailable|fails|not.*open/i,
+    'SKILL.md must describe when to fall back from jetbrains to the next option');
+});
+
+test('SKILL.md Process section names codebase-memory-mcp as the jetbrains fallback (not grep)', () => {
+  assert.ok(processSection, 'Process section missing');
+  // The fallback from jetbrains must be codebase-memory-mcp, not grep directly
+  const jbIdx = processSection.indexOf('jetbrains');
+  const cbmIdx = processSection.indexOf('codebase-memory-mcp');
+  assert.ok(jbIdx !== -1, 'jetbrains missing from Process section');
+  assert.ok(cbmIdx !== -1, 'codebase-memory-mcp missing from Process section');
+  assert.ok(jbIdx < cbmIdx,
+    'jetbrains must appear before codebase-memory-mcp in Process (priority order)');
+});
+
+test('SKILL.md Process section names Grep/Read as last resort (after both MCP servers)', () => {
+  assert.ok(processSection, 'Process section missing');
+  assert.match(processSection, /last.?resort|only.*when.*both|raw.*Grep.*last|Grep.*only.*when/i,
+    'SKILL.md must describe Grep/Read as last resort, not a first-line tool');
+});
+
+test('SKILL.md Process section has explicit "never use Grep for symbol lookup" rule', () => {
+  assert.ok(processSection, 'Process section missing');
+  assert.match(processSection, /never.*grep.*symbol|never.*grep.*reference|never.*reach.*grep/i,
+    'SKILL.md must explicitly forbid using Grep for symbol lookup when jetbrains is reachable');
 });
