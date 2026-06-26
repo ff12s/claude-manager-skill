@@ -212,3 +212,44 @@ test('review-loop.md prose documents that test-runner fires in parallel with rev
   assert.match(md, /parallel/i);
   assert.match(md, /test.runner|test runner/i);
 });
+
+// ─── TEST_PROMPT must-not-override guard ───
+// Root cause: the orchestrator silently replaced TEST_PROMPT with "unit tests only (no Docker)"
+// because the docs did not forbid it. These tests verify that the documentation explicitly
+// prohibits overriding TEST_PROMPT and that the script itself marks the constant as fixed.
+
+test('review-loop.md prose explicitly states TEST_PROMPT must NOT be modified by the orchestrator', () => {
+  assert.match(
+    md,
+    /do not.{0,20}modify.{0,60}TEST_PROMPT|TEST_PROMPT.{0,60}must not.{0,40}modif/i,
+    'The "How to run / adapt" section must contain an explicit warning that TEST_PROMPT must not be overridden',
+  );
+});
+
+test('review-loop.md script has a DO NOT MODIFY comment on the TEST_PROMPT constant', () => {
+  // The comment must appear within 3 lines of the TEST_PROMPT declaration so it is clearly associated.
+  const lines = RAW_SRC.split('\n');
+  const tpIdx = lines.findIndex((l) => /const TEST_PROMPT\s*=/.test(l));
+  assert.ok(tpIdx !== -1, 'TEST_PROMPT constant not found in script');
+  const window = lines.slice(Math.max(0, tpIdx - 3), tpIdx + 1).join('\n');
+  assert.match(
+    window,
+    /do not.{0,10}modify|DO NOT MODIFY/i,
+    'A "DO NOT MODIFY" comment must appear within 3 lines before the TEST_PROMPT constant',
+  );
+});
+
+test('review-loop.md fill-in paragraph names only the nine config constants and does NOT include TEST_PROMPT', () => {
+  // TEST_PROMPT is a fixed constant, not a fill-in slot. If it appeared in the fill-in constants
+  // paragraph the orchestrator might treat it as something it is expected to customise.
+  // The fill-in list is a single line starting with "Paste this script" that ends with "Iterate with …".
+  // (The CRITICAL block that follows intentionally *mentions* TEST_PROMPT to forbid overriding it —
+  // we must not capture that block here.)
+  const fillLine = md.split('\n').find((l) => l.startsWith('Paste this script') && l.includes('Iterate with'));
+  assert.ok(fillLine, 'Could not locate the "Paste this script … Iterate with …" fill-in line in review-loop.md');
+  assert.doesNotMatch(
+    fillLine,
+    /TEST_PROMPT/,
+    'TEST_PROMPT must NOT appear in the fill-in constants line — it is a fixed constant, not a slot',
+  );
+});
