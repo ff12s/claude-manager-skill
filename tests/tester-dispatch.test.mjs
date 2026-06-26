@@ -85,6 +85,28 @@ test('TESTER set: test-runner uses TEST_PROMPT (contains "test suite"), not REVI
     'test-runner must not receive the reviewer REVIEW_PROMPT');
 });
 
+test('TESTER set: TEST_PROMPT explicitly requires running integration tests, not unit-only', async () => {
+  const { calls } = await runCapturingCalls(withTester(TESTER_TYPE));
+  const testerCall = calls.find((c) => c.label === 'review:test-runner');
+  assert.ok(testerCall, 'test-runner call not found');
+  assert.match(
+    testerCall.prompt,
+    /integration/i,
+    'TEST_PROMPT must explicitly mention integration tests so the agent does not silently run only unit tests',
+  );
+});
+
+test('TESTER set: TEST_PROMPT instructs not to limit run to unit tests only', async () => {
+  const { calls } = await runCapturingCalls(withTester(TESTER_TYPE));
+  const testerCall = calls.find((c) => c.label === 'review:test-runner');
+  assert.ok(testerCall, 'test-runner call not found');
+  assert.match(
+    testerCall.prompt,
+    /do not.{0,30}unit/i,
+    'TEST_PROMPT must explicitly forbid limiting the run to unit tests only',
+  );
+});
+
 test('TESTER set: test-runner dispatched on sonnet @ high (TESTER_POWER default tier)', async () => {
   const { calls } = await runCapturingCalls(withTester(TESTER_TYPE));
   const testerCall = calls.find((c) => c.label === 'review:test-runner');
