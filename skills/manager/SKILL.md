@@ -101,7 +101,11 @@ One Workflow call per code-changing branch. The executable script, tiers, and re
 
 1. Understand intent. If ambiguous, ask ONE clarifying question max before dispatching, then commit.
 2. Scan the repo only as much as needed to pick specialists. Prefer MCP tools over raw Read/Grep/Glob for code:
-   - **Code:** `mcp__codebase-memory-mcp__*` (indexed) — `index_status` → `index_repository` if needed;
+   - **Symbols & references (prefer jetbrains over grep):** `jetbrains` MCP first — `search_symbol`,
+     `get_symbol_info`, `find_usages`, `search_in_files_by_text`. Uses the live PyCharm IDE index;
+     faster and more accurate than grep for code-structure questions (definitions, callers, type info).
+     Fall back to `codebase-memory-mcp` when PyCharm is not open or the server is unavailable.
+   - **Code graph:** `mcp__codebase-memory-mcp__*` (indexed) — `index_status` → `index_repository` if needed;
      `search_graph`, `get_code_snippet`, `trace_path`, `search_code`, `get_architecture`, `query_graph`.
    - **Library docs:** context7 is mandatory — `resolve-library-id` then `query-docs` twice per library
      (API + best practices), pinned to the repo's version (see Grounding gate).

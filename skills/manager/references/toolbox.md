@@ -51,7 +51,8 @@ You (the orchestrator) call these directly — they are not subagents. Prefer th
 
 | Server | Scope | Key tools | Use for |
 |---|---|---|---|
-| `codebase-memory-mcp` | global | `index_status`, `index_repository`, `search_graph`, `get_code_snippet`, `trace_path`, `search_code`, `get_architecture`, `query_graph` | indexed code discovery — first choice for any code-structure question |
+| `jetbrains` (PyCharm MCP) | user | `search_symbol`, `get_symbol_info`, `find_usages`, `search_in_files_by_text`, `search_in_files_by_regexp`, `find_files_by_name_keyword`, `rename_refactoring`, `get_file_problems` | **live IDE index** — prefer over grep for symbol lookup, go-to-definition, find references; requires PyCharm open with the project |
+| `codebase-memory-mcp` | global | `index_status`, `index_repository`, `search_graph`, `get_code_snippet`, `trace_path`, `search_code`, `get_architecture`, `query_graph` | indexed code discovery — second choice (async graph); use when jetbrains is unavailable |
 | `context7` (context7 plugin) | global | `mcp__plugin_context7_context7__resolve-library-id`, `…__query-docs` | **mandatory grounding** — current library/framework docs **and best practices**; query every touched library twice (API + best practices); your job, not a subagent's (see `grounding.md`) |
 | `postgres-statuses` | global | `mcp__postgres-statuses__query` | run SQL against the status-service Postgres for inspection (read-only intent) |
 | `ide` | built-in | `mcp__ide__getDiagnostics` | LSP / type diagnostics for open files |
