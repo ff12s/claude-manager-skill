@@ -216,7 +216,7 @@ test('static: script uses inline constants, not args.* — prevents silent undef
   assert.doesNotMatch(SRC, /\bargs\.\w+/, 'script must not reference args.* properties (inline as JS constants instead)');
 });
 
-test('static: script defines all seven fill-in constants (WRITER, REVIEWER, SUPPLEMENTARY, WRITER_POWER, TASK, GROUNDING, SCOPE_HINT)', () => {
+test('static: script defines all nine fill-in constants (WRITER, REVIEWER, SUPPLEMENTARY, WRITER_POWER, TASK, GROUNDING, SCOPE_HINT, TESTER, TESTER_POWER)', () => {
   assert.match(SRC, /const WRITER\s*=/);
   assert.match(SRC, /const REVIEWER\s*=/);
   assert.match(SRC, /const SUPPLEMENTARY\s*=/);
@@ -224,6 +224,8 @@ test('static: script defines all seven fill-in constants (WRITER, REVIEWER, SUPP
   assert.match(SRC, /const TASK\s*=/);
   assert.match(SRC, /const GROUNDING\s*=/);
   assert.match(SRC, /const SCOPE_HINT\s*=/);
+  assert.match(SRC, /const TESTER\s*=/);
+  assert.match(SRC, /const TESTER_POWER\s*=/);
 });
 
 test('static: stop-conditions table in review-loop.md documents WRITER-EMPTY guard', () => {

@@ -76,20 +76,113 @@ Copy-Item -Recurse claude-manager-skill\skills\manager $env:USERPROFILE\.claude\
 …или просто попроси «use manager» / «orchestrate». Скилл рассчитан на задачи, затрагивающие больше одной
 специальности (frontend + backend, код + инфра, код + тесты, пайплайн данных + тюнинг БД и т.п.).
 
-## Зависимости и контекст
+## Зависимости и установка компонентов
 
-`SKILL.md` ссылается на конкретный набор плагинов, агентов и MCP-серверов, под который он написан:
+`SKILL.md` ссылается на конкретный набор плагинов, агентов и MCP-серверов. Ниже — полный список с командами
+установки. Без этих компонентов скилл активируется, но часть диспатч-таблицы будет недоступна — таблицу под
+свой набор плагинов стоит подправить (`references/dispatch-table.md`).
 
-- **Плагины-маркетплейсы:** `superpowers` (+ `context7`) из `claude-plugins-official`;
-  `voltagent-core-dev` / `voltagent-data-ai` / `voltagent-infra` / `voltagent-qa-sec` из `voltagent-subagents`;
-  `python-development` (+ `agent-orchestration`) из `claude-code-workflows`.
-- **Локальные агенты** в `~/.claude/agents`: клон `awesome-claude-agents`, плюс `silent-failure-hunter` и
-  `comment-analyzer`.
-- **MCP-серверы:** `context7` (грунтовка по докам — обязательна), `codebase-memory-mcp` (индексированный
-  обход кода), `postgres-statuses`, `ide`, опционально `github`.
+### 1. Плагины-маркетплейсы (устанавливаются через Claude Code)
 
-Без этих компонентов скилл всё равно активируется, но часть диспатч-таблицы и MCP-инструментов будет
-недоступна — таблицу под свой набор плагинов стоит подправить.
+Плагины устанавливаются из встроенного маркетплейса Claude Code: откройте `/marketplace` или пропишите
+плагины в `~/.claude/settings.json` → `"plugins"`.
+
+#### `claude-plugins-official` → пакет `superpowers` + `context7`
+
+- **superpowers** — процессный фреймворк (brainstorming / TDD / systematic-debugging / review-loop).
+  Без него скилл не работает — это его процессный скелет.
+- **context7** (MCP-сервер) — текущая документация библиотек. Обязателен для grounding-шага.
+
+Источник: официальный маркетплейс Claude Code (`claude-plugins-official`).
+
+#### `claude-code-workflows` (wshobson) → **основной набор агентов**
+
+GitHub: <https://github.com/wshobson/claude-code-workflows>
+
+Маркетплейс с 83 бандлами (191 агент). `/manager` использует эти бандлы:
+
+| Бандл | Ключевые агенты |
+|---|---|
+| `comprehensive-review` | `comprehensive-review-code-reviewer` (Review Loop), `comprehensive-review-security-auditor`, `comprehensive-review-architect-review` |
+| `python-development` | `python-pro`, `python-development-fastapi-pro`, `python-development-django-pro` |
+| `backend-development` | `backend-development-backend-architect`, `backend-development-test-automator` (TESTER) |
+| `incident-response` | `debugger`, `error-detective`, `test-automator` |
+| `data-engineering` | `data-engineer` |
+| `machine-learning-ops` | `data-scientist`, `ml-engineer`, `mlops-engineer` |
+| `llm-application-dev` | `ai-engineer`, `prompt-engineer`, `vector-database-engineer` |
+| `database-cloud-optimization` | `database-optimizer`, `database-architect` |
+| `cloud-infrastructure` | `cloud-architect`, `terraform-specialist`, `deployment-engineer`, `network-engineer`, `service-mesh-expert` |
+| `kubernetes-operations` | `kubernetes-architect` |
+| `cicd-automation` | `deployment-engineer`, `devops-troubleshooter` |
+| `frontend-mobile-development` | `frontend-developer`, `mobile-developer` |
+| `ui-design` | `ui-designer`, `design-system-architect`, `accessibility-expert` |
+| `agent-orchestration` | `context-manager` |
+
+**Агентыon-demand (не установлены по умолчанию):** `systems-programming`, `javascript-typescript`,
+`jvm-languages`, `web-scripting`, `functional-programming`, `database-design`, `shell-scripting` — устанавливаются при необходимости.
+
+#### `voltagent-subagents` (VoltAgent) → **только для orphan-агентов**
+
+GitHub: <https://github.com/VoltAgent/awesome-claude-code-subagents>
+
+Из всего пакета установлены только два плагина для агентов, которых нет у wshobson:
+
+| Плагин | Агенты |
+|---|---|
+| `voltagent-qa-sec` | `penetration-tester`, `powershell-security-hardening`, `chaos-engineer`, `qa-expert`, `compliance-auditor`, `gdpr-ccpa-compliance` |
+| `voltagent-data-ai` | `postgres-pro` |
+
+`voltagent-core-dev` и `voltagent-infra` **удалены** — не диспатчьте их старые имена.
+
+### 2. Локальные агенты (`~/.claude/agents/`)
+
+Локальные агенты — bare-name (без `bundle:` префикса). Клонируются в `~/.claude/agents/`.
+
+#### awesome-claude-agents — базовая библиотека агентов
+
+Набор кросс-стековых агентов (cross-language, universal). Клонируйте в `~/.claude/agents/`:
+
+```bash
+# macOS / Linux
+git clone https://github.com/anthropics/awesome-claude-agents ~/.claude/agents/awesome-claude-agents
+# или по одному нужному агенту — каждый агент это отдельный .md-файл
+```
+
+```powershell
+# Windows (PowerShell)
+git clone https://github.com/anthropics/awesome-claude-agents "$env:USERPROFILE\.claude\agents\awesome-claude-agents"
+```
+
+Включает: `code-archaeologist`, `code-reviewer`, `documentation-specialist`, `performance-optimizer`,
+`project-analyst`, `team-configurator`, `tech-lead-orchestrator`, `api-architect`, `backend-developer`,
+`frontend-developer`, `tailwind-frontend-expert` — и стековые специалисты (Django, FastAPI, Rails, Laravel, React, Vue, …).
+
+#### `silent-failure-hunter` и `comment-analyzer` — специализированные ревьюеры
+
+Источник: <https://github.com/affaan-m/ECC> (Enhanced Claude Code).
+
+```bash
+# macOS / Linux — скопировать нужные .md-файлы агентов в ~/.claude/agents/
+git clone https://github.com/affaan-m/ECC /tmp/ecc
+cp /tmp/ecc/agents/silent-failure-hunter.md ~/.claude/agents/
+cp /tmp/ecc/agents/comment-analyzer.md ~/.claude/agents/
+```
+
+```powershell
+# Windows (PowerShell)
+git clone https://github.com/affaan-m/ECC "$env:TEMP\ecc"
+Copy-Item "$env:TEMP\ecc\agents\silent-failure-hunter.md" "$env:USERPROFILE\.claude\agents\"
+Copy-Item "$env:TEMP\ecc\agents\comment-analyzer.md" "$env:USERPROFILE\.claude\agents\"
+```
+
+### 3. MCP-серверы
+
+| Сервер | Обязателен | Назначение | Установка |
+|---|---|---|---|
+| `context7` | **да** | Grounding по актуальной документации библиотек | Входит в плагин `context7` (`claude-plugins-official`) |
+| `codebase-memory-mcp` | нет | Индексированный обход кода (graph-based) — значительно ускоряет разведку репо | [Отдельная установка](https://github.com/some-repo/codebase-memory-mcp) — настраивается через `mcpServers` в `~/.claude/settings.json` |
+| `ide` | нет | LSP / диагностика open-файлов | Встроен в Claude Code IDE-расширение |
+| `github` | нет | PR / Issue / API GitHub | Официальный MCP сервер от GitHub — настраивается через `mcpServers` |
 
 ## Лицензия
 

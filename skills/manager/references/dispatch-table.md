@@ -18,14 +18,14 @@ Pick the most specific agent for the task. If a stack-specific agent exists, pre
 
 **Dispatch-name resolution (read once).** Pass the resolved name as **`agentType`** in a Workflow `agent()` call, alongside `model: 'opus', effort: 'xhigh'` (the opts override the agent's frontmatter model). Resolution by source:
 
-- **wshobson (`claude-code-workflows`) — the primary set.** Name is **`<bundle>:<agent>`**, e.g. `comprehensive-review:code-reviewer`, `backend-development:backend-architect`. wshobson **duplicates the same agent across many bundles** (e.g. `code-reviewer` exists in `comprehensive-review`, `incident-response`, `tdd-workflows`…). Always use the bundle that is **installed** — the bundle named in the tables below. Installed bundles: `python-development`, `agent-orchestration`, `backend-development`, `frontend-mobile-development`, `ui-design`, `cloud-infrastructure`, `kubernetes-operations`, `cicd-automation`, `incident-response`, `comprehensive-review`, `data-engineering`, `machine-learning-ops`, `llm-application-dev`, `database-cloud-optimization`.
+- **wshobson (`claude-code-workflows`) — the primary set.** Name is **`<bundle>:<agent>`**, e.g. `comprehensive-review:comprehensive-review-code-reviewer`, `python-development:python-pro`. **Important:** some agents (the entire `comprehensive-review` bundle and several others) register with the bundle prefix repeated inside the agent name — the tables below list the exact short-name to use so that `<bundle>:<agent>` assembles the correct full `agentType`. wshobson **duplicates the same agent across many bundles** (e.g. `code-reviewer` exists in `comprehensive-review`, `incident-response`, `tdd-workflows`…). Always use the bundle that is **installed** — the bundle named in the tables below. Installed bundles: `python-development`, `agent-orchestration`, `backend-development`, `frontend-mobile-development`, `ui-design`, `cloud-infrastructure`, `kubernetes-operations`, `cicd-automation`, `incident-response`, `comprehensive-review`, `data-engineering`, `machine-learning-ops`, `llm-application-dev`, `database-cloud-optimization`.
 - **voltagent — kept only for orphan agents wshobson lacks.** Only two voltagent plugins remain installed: `voltagent-qa-sec` and `voltagent-data-ai`. Use them **only** for the agents explicitly tagged `voltagent-*` below (e.g. `voltagent-data-ai:postgres-pro`, `voltagent-qa-sec:penetration-tester`). `voltagent-core-dev` and `voltagent-infra` are **uninstalled** — never dispatch their old names.
 - **awesome-claude-agents / local (`~/.claude/agents`)** — use the **bare name** (`code-archaeologist`, `silent-failure-hunter`, `comment-analyzer`, …).
 - **built-in** — bare name (`Explore`, `Plan`, `general-purpose`).
 
 **Tier every dispatch** (`{model, effort}`) by role — see `../SKILL.md` → "Dispatch mechanism": reviewers / `security-auditor` / `architect-review` → `opus` @ `xhigh`; writer / fixer / stack specialists → `sonnet` @ `high` (escalate to `{opus, xhigh}` for cross-file work); recon / `comment-analyzer` → `haiku` (no `effort`). `xhigh` is Opus/Fable only; Haiku rejects `effort`.
 
-**Name collisions.** A **bare** name that exists in both the local awesome-claude-agents library and a plugin resolves to the **local** copy. After the voltagent→wshobson migration the collision set shrank (voltagent-core-dev removed), but `code-reviewer` still exists locally **and** in wshobson — so for the Review Loop always dispatch the namespaced **`comprehensive-review:code-reviewer`**, never bare `code-reviewer`. Same for `security-auditor` → `comprehensive-review:security-auditor`.
+**Name collisions.** A **bare** name that exists in both the local awesome-claude-agents library and a plugin resolves to the **local** copy. After the voltagent→wshobson migration the collision set shrank (voltagent-core-dev removed), but `code-reviewer` still exists locally **and** in wshobson — so for the Review Loop always dispatch the namespaced **`comprehensive-review:comprehensive-review-code-reviewer`**, never bare `code-reviewer`. Same for `security-auditor` → `comprehensive-review:comprehensive-review-security-auditor`.
 
 ### Python & data (the main stack)
 | Task | Agent | Source |
@@ -81,11 +81,12 @@ Pick the most specific agent for the task. If a stack-specific agent exists, pre
 ### Quality, security, debug
 | Task | Agent | Source |
 |---|---|---|
-| Code review (always — used inside the Review Loop) | `code-reviewer` | comprehensive-review |
-| Architecture / design critique of a proposed approach | `architect-review` | comprehensive-review |
-| Security audit | `security-auditor` | comprehensive-review |
+| Code review (always — used inside the Review Loop; set as `REVIEWER`) | `comprehensive-review-code-reviewer` | comprehensive-review |
+| Architecture / design critique of a proposed approach | `comprehensive-review-architect-review` | comprehensive-review |
+| Security audit (set in `SUPPLEMENTARY` when auth/secrets/I/O/SQL are touched) | `comprehensive-review-security-auditor` | comprehensive-review |
 | Silent failures, swallowed errors, bad fallbacks, missing error propagation | `silent-failure-hunter` | local (`~/.claude/agents`) |
 | Comment accuracy / comment-rot review | `comment-analyzer` | local (`~/.claude/agents`) |
+| **Test suite runner — set as `TESTER` for any repo with runnable tests** | **`backend-development:backend-development-test-automator`** | **backend-development** |
 | Debugging a specific bug | `debugger` | incident-response |
 | Tracing intermittent / error-pattern issues | `error-detective` | incident-response |
 | Test strategy / test code | `test-automator` | incident-response |

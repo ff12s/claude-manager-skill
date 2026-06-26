@@ -31,17 +31,18 @@ ready (`stoppedBy === null`); merging is the orchestrator's job, not the script'
 
 ## Reference Review Loop Workflow
 
-Paste this script into the Workflow `script` parameter and fill in the seven constants at the top: `WRITER`/`REVIEWER` = resolved `agentType` strings; `SUPPLEMENTARY` = `[{type, label, power?}]` for whichever of `silent-failure-hunter` / `comment-analyzer` / `comprehensive-review:security-auditor` fire (Step A triggers); `WRITER_POWER` = `{model:'opus', effort:'xhigh'}` for cross-file / unfamiliar work, else leave as `{model:'sonnet', effort:'high'}`; `TASK` = the user's request verbatim; `GROUNDING` = the documentation grounding brief you assembled (see `grounding.md`), threaded into writer/fixer prompts (NOT into reviewers — they review fresh); `SCOPE_HINT` = path/glob hint for the writer, or `''`. Iterate with `{scriptPath, resumeFromRunId}` if you tweak it.
+Paste this script into the Workflow `script` parameter and fill in the nine constants at the top: `WRITER`/`REVIEWER` = resolved `agentType` strings; `SUPPLEMENTARY` = `[{type, label, power?}]` for whichever of `silent-failure-hunter` / `comment-analyzer` / `comprehensive-review:comprehensive-review-security-auditor` fire (Step A triggers); `WRITER_POWER` = `{model:'opus', effort:'xhigh'}` for cross-file / unfamiliar work, else leave as `{model:'sonnet', effort:'high'}`; `TASK` = the user's request verbatim; `GROUNDING` = the documentation grounding brief you assembled (see `grounding.md`), threaded into writer/fixer prompts (NOT into reviewers — they review fresh); `SCOPE_HINT` = path/glob hint for the writer, or `''`; `TESTER` = `'backend-development:backend-development-test-automator'` for any repo with a runnable test suite, or `''` to skip; `TESTER_POWER` = `{model:'sonnet', effort:'high'}` (default). Iterate with `{scriptPath, resumeFromRunId}` if you tweak it.
 
 **Model+effort tiers** (set by the `power()` resolver + the `*_POWER` defaults / per-spec overrides):
 
 | Role | Default tier | Override |
 |---|---|---|
 | Writer / fixer | `sonnet` @ `high` | set `WRITER_POWER = {model:'opus', effort:'xhigh'}` for cross-file/unfamiliar work |
-| `code-reviewer` (mandatory) | `opus` @ `xhigh` | — |
-| `comprehensive-review:security-auditor` (supplementary) | `opus` @ `xhigh` | (default tier — no override needed) |
+| `comprehensive-review-code-reviewer` (mandatory REVIEWER) | `opus` @ `xhigh` | — |
+| `comprehensive-review:comprehensive-review-security-auditor` (supplementary) | `opus` @ `xhigh` | (default tier — no override needed) |
 | `silent-failure-hunter` (supplementary) | `sonnet` @ `high` | `power:{model:'sonnet', effort:'high'}` |
 | `comment-analyzer` (supplementary) | `haiku` (no effort) | `power:{model:'haiku'}` |
+| test-runner / `TESTER` | `sonnet` @ `high` | (TESTER_POWER default) |
 
 The `power()` resolver enforces compatibility: **Haiku** never receives `effort` (it 400s otherwise), and **`xhigh`** off Opus/Fable is downgraded to `max` (Sonnet tops out at `max`). Keep `code-reviewer` and `security-auditor` on Opus — Sonnet trails on review recall.
 

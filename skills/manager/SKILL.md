@@ -62,7 +62,7 @@ opts overrides each agent's frontmatter model, so the tier you pass wins regardl
 | Role | Tier |
 |---|---|
 | Orchestrator (you) | `opus` @ `high` (heavy scoping/planning: `xhigh`) |
-| `code-reviewer`, `security-auditor`, `architect-review` | `opus` @ `xhigh` |
+| `comprehensive-review-code-reviewer`, `comprehensive-review-security-auditor`, `comprehensive-review-architect-review` | `opus` @ `xhigh` |
 | Writer / fixer, stack specialists | `sonnet` @ `high` — escalate to `{opus, xhigh}` for cross-file / unfamiliar-codebase work |
 | `silent-failure-hunter` | `sonnet` @ `high` |
 | recon / `Explore`, `comment-analyzer` | `haiku` (no `effort`) |
@@ -74,7 +74,7 @@ direct dispatch. Keep `code-reviewer`/`security-auditor` on Opus — Sonnet trai
 What stays in the main loop (you), because a Workflow can't: scoping the repo, clarifying questions, picking
 specialists, surfacing disagreements, final synthesis. Everything that *executes a specialist* goes through a Workflow.
 
-- **Namespacing:** pass the resolved dispatch name as `agentType` (e.g. `agentType:'comprehensive-review:code-reviewer'`),
+- **Namespacing:** pass the resolved dispatch name as `agentType` (e.g. `agentType:'comprehensive-review:comprehensive-review-code-reviewer'`),
   with the role's `{model, effort}` in the same opts. wshobson agents are `<bundle>:<agent>` (primary set); the two
   remaining voltagent plugins (`voltagent-qa-sec`, `voltagent-data-ai`) are used only for orphan agents; bare names
   resolve to the local awesome-claude-agents copy. See `references/dispatch-table.md` for resolution & collisions.
@@ -127,13 +127,14 @@ knowledge of prior rounds or that a fix happened, as if a fresh person is seeing
 When the loop returns ready (`stoppedBy === null`), the change is mergeable — you (the orchestrator) merge; the
 script does not.
 
-- **Reviewers (fresh each round):** always `comprehensive-review:code-reviewer` (mandatory). Add in **parallel**
-  whichever supplementary reviewer's trigger fires: `comprehensive-review:security-auditor`
+- **Reviewers (fresh each round):** always `comprehensive-review:comprehensive-review-code-reviewer` (mandatory). Add in **parallel**
+  whichever supplementary reviewer's trigger fires: `comprehensive-review:comprehensive-review-security-auditor`
   (auth/secrets/user-input/file-I/O/network/serialization/SQL); `silent-failure-hunter` (error handling /
   external I/O / background/async/outbox/retry paths); `comment-analyzer` (comment or docstring changes — this
-  repo's functions carry Russian docstrings). When `TESTER` is set, a **test-runner** agent also fires in
-  parallel each round: it runs the project's test suite and reports failures as `critical` findings. Reviewers
-  receive only the task + grounding — **never** prior findings or the fact that a fix happened.
+  repo's functions carry Russian docstrings). Set `TESTER` to `backend-development:backend-development-test-automator`
+  for any repo with a runnable test suite (`''` to skip): the test-runner fires in parallel with reviewers each
+  round and reports test failures as `critical` findings. Reviewers receive only the task + grounding — **never**
+  prior findings or the fact that a fix happened.
 - **Output:** reviewers return `findings[]` (severity, file, line, first8, explanation); empty array = clean. The
   fixer (the ORIGINAL writer) gets this round's findings tagged as `MUST-FIX`, `REGRESSION`, or severity.
 - **Ready gate = no must-fix (critical/high) AND no regression.** A **regression** is a finding whose fingerprint
@@ -158,7 +159,7 @@ quote remaining findings).
 ## Rules
 
 - **Stack-specific beats generic.** Don't send a Django change to `python-pro` when `django-pro` exists.
-- **Always review.** Every code-changing dispatch enters the Review Loop with `comprehensive-review:code-reviewer`;
+- **Always review.** Every code-changing dispatch enters the Review Loop with `comprehensive-review:comprehensive-review-code-reviewer`;
   add supplementary reviewers when their triggers fire.
 - **Parallel but capped — and the loop is expensive.** Reviewers fan out inside the Workflow (`parallel(...)`,
   runtime cap ≤ min(16, cores−2)). With the 10-iteration cap, one stuck branch can cost ~`writer + 10×(reviewers +
@@ -170,8 +171,8 @@ quote remaining findings).
 - **Ground in docs before dispatching** (context7 first) — your job, not a subagent's. Don't dispatch an architect
   for "is FastAPI's lifespan still recommended?" — answer it from context7 yourself, then proceed.
 - **Name collisions.** wshobson duplicates the same agent across bundles, and `code-reviewer` also exists locally —
-  always dispatch the namespaced bundle form (`comprehensive-review:code-reviewer`), never a bare colliding name.
-  Details: `references/dispatch-table.md`.
+  always dispatch the full namespaced form (`comprehensive-review:comprehensive-review-code-reviewer`), never a bare
+  colliding name. Details: `references/dispatch-table.md`.
 - **Don't hide disagreement.** If two reviewers disagree, surface both views; don't pick a side silently.
 - **Cheapest fit.** Don't dispatch an architect for a variable-naming question.
 - **You orchestrate, you don't implement.** Even one-line fixes go through a specialist — implementing inline
