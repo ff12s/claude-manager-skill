@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const skillDir = join(here, '..', 'skills', 'manager');
-const md = readFileSync(join(skillDir, 'references', 'review-loop.md'), 'utf8');
+const md = readFileSync(join(here, '..', 'skills', 'review-loop', 'review-loop.md'), 'utf8');
 const dispatchTable = readFileSync(join(skillDir, 'references', 'dispatch-table.md'), 'utf8');
 const body = readFileSync(join(skillDir, 'SKILL.md'), 'utf8');
 

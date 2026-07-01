@@ -1,7 +1,13 @@
+---
+name: context7-grounding
+description: Use before any code-changing work that touches a third-party library, framework, API, CLI, cloud service, or an established pattern (transactional outbox, retries/backoff, auth, ORM sessions, async, migrations). Produces a documentation grounding brief from current docs via context7 (API surface + best practices, version-pinned) to thread into writer/fixer/reviewer prompts as args.grounding. The orchestrator produces the brief; a subagent cannot (it does not know the pinned version).
+---
+
+
 # Documentation grounding — context7 first (full procedure)
 
-Read this before any code-changing dispatch (see `../SKILL.md` → "Grounding gate"). This is the orchestrator's
-job, not a subagent's. Produce the brief, then pass it as `args.grounding`.
+Invoke this before any code-changing dispatch (the `manager` skill's Grounding gate points here). This is the
+orchestrator's job, not a subagent's. Produce the brief, then pass it as `args.grounding`.
 
 Before you dispatch any specialist to write or change code, **you (the orchestrator) produce a grounding brief from current documentation.** Grounding is your job, not a subagent's — subagents don't know which version the repo pins. This step is **required whenever the change touches a third-party library, framework, API, CLI, cloud service, or an established pattern** (transactional outbox, retries/backoff, auth, ORM sessions, async, migrations, etc.) — which is nearly every code change. Skip it only for a self-contained edit that touches no library and no named pattern.
 

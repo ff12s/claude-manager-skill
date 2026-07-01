@@ -1,0 +1,43 @@
+#!/bin/bash
+# SessionStart hook: probe JetBrains MCP reachability so the `code-discovery` skill knows
+# whether to lead with the live PyCharm IDE index or fall back to codebase-memory.
+#
+# PyCharm 2025.2+ ships a built-in MCP server (com.intellij.mcpServer) exposed over SSE at
+# http://localhost:64342/sse. The port can shift up if 64342 is busy, so we scan a small range.
+# Emits the authoritative code-discovery ladder (jetbrains -> codebase-memory -> grep); this is
+# the counterpart to the MCP-installed cbm-session-reminder, which advises codebase-memory first.
+#
+# Overrides (for testing / non-default installs):
+#   JETBRAINS_MCP_PROBE_PORTS  space-separated ports to scan (default "64342 64343 64344 64345")
+#   JETBRAINS_MCP_PROBE_HOST   host to probe (default 127.0.0.1)
+# Never exits non-zero: SessionStart output is advisory context, not a gate.
+
+ports="${JETBRAINS_MCP_PROBE_PORTS:-64342 64343 64344 64345}"
+host="${JETBRAINS_MCP_PROBE_HOST:-127.0.0.1}"
+
+# Connect test with a hard 1s cap: a *refused* port returns instantly, but a *filtered/dropped*
+# port (e.g. a Windows reserved range) would block on SYN-retransmit and stall SessionStart.
+probe_port() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 1 bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null
+  else
+    (exec 3<>"/dev/tcp/$1/$2") 2>/dev/null
+  fi
+}
+
+found=""
+for p in $ports; do
+  # Open then immediately close a TCP connection; no data written to a live SSE port.
+  if probe_port "$host" "$p"; then
+    found="$p"
+    break
+  fi
+done
+
+if [ -n "$found" ]; then
+  echo "JetBrains MCP up on port $found. Code-discovery ladder: jetbrains -> codebase-memory -> grep. Prefer jetbrains (live IDE index) for symbol lookup, references, and call graphs; never grep for a symbol when jetbrains is reachable."
+else
+  echo "JetBrains MCP down (no listener on ports: $ports). Code-discovery ladder: codebase-memory -> grep. Skip jetbrains this session."
+fi
+
+exit 0
