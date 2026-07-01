@@ -108,6 +108,6 @@ test('manager Process section delegates code search to the code-discovery skill'
 test('manager toolbox.md points the ladder at the code-discovery skill', () => {
   // The MCP rows stayed in toolbox as inventory, but the priority ladder moved to code-discovery;
   // lock the pointer that replaced the moved ordering so toolbox can't silently re-own the ladder.
-  assert.match(toolbox, /code-discovery/,
-    'toolbox.md must point the code-search ladder at the code-discovery skill');
+  assert.match(toolbox, /priority ladder[\s\S]*?code-discovery/i,
+    'toolbox.md must point the code-search *priority ladder* at the code-discovery skill');
 });
