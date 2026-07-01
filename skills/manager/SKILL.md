@@ -136,16 +136,28 @@ script does not.
   external I/O / background/async/outbox/retry paths); `comment-analyzer` (comment or docstring changes — this
   repo's functions carry Russian docstrings). Set `TESTER` to `backend-development:backend-development-test-automator`
   for any repo with a runnable test suite (`''` to skip): the test-runner fires in parallel with reviewers each
-  round and reports test failures as `critical` findings. Reviewers receive only the task + grounding — **never**
-  prior findings or the fact that a fix happened.
+  round and reports test failures as `critical` findings. Reviewers receive only the task + grounding + any locked
+  arbiter decisions (treated as spec) — **never** prior findings or the fact that a fix happened.
+- **Severity discipline (kills most oscillation):** `REVIEW_PROMPT` restricts critical/high to OBJECTIVE defects —
+  wrong output, crash, data loss, security, contract/API violation, resource/lock leak, failing test. A subjective
+  preference (naming, one of two valid structurings, style, ordering) is at most `low`, so it never becomes must-fix
+  and cannot drive the loop. Real bugs don't oscillate; taste does — so taste is not allowed to block.
 - **Output:** reviewers return `findings[]` (severity, file, line, first8, explanation); empty array = clean. The
-  fixer (the ORIGINAL writer) gets this round's findings tagged as `MUST-FIX`, `REGRESSION`, or severity.
+  fixer (the ORIGINAL writer) gets this round's findings tagged as `MUST-FIX`, `REGRESSION`, or severity, plus its
+  own defended `<prior-decisions>` so it does not silently reverse itself round to round.
 - **Ready gate = no must-fix (critical/high) AND no regression.** A **regression** is a finding whose fingerprint
   (`file|line|first8`) did NOT appear in the previous round's findings — i.e., the fixer introduced it. Fingerprint
   tracking is cross-round; iteration 1 has no prior round so regressions are never detected there. A medium or low
   finding that persists with the same fingerprint across rounds is NOT a regression and does not block merge.
+- **Oscillation guard (arbiter tiebreaker):** if the change ping-pongs — the state under review matches one from ≥2
+  rounds ago while the ready gate is still unmet (must-fix or a regression) — reviewers are reversing each other on a subjective point. The loop
+  auto-dispatches ONE senior arbiter (`comprehensive-review:comprehensive-review-architect-review`, opus @ xhigh) to
+  pick and LOCK a single decision; that decision is injected into all later reviewers + the fixer as spec, so the loop
+  converges instead of running to the cap. Detection keys off snapshot cycling (`snapEqual`), not fingerprints, so it
+  survives the `first8` weakness. After 2 unresolved rulings → OSCILLATION-UNRESOLVED stop.
 - **Fixer rule:** fix all MUST-FIX and REGRESSION items. **Do NOT modify existing tests to make them pass** — fix
-  the implementation instead. Tests change only when functionality changes.
+  the implementation instead. Tests change only when functionality changes. If a finding is wrong or reverses a
+  locked/prior decision, the fixer records it in `decisions` instead of applying it.
 - **Stop conditions (first match wins):**
 
 | Condition | Fires when → action |
@@ -153,12 +165,17 @@ script does not.
 | WRITER-EMPTY | writer returned an empty snapshot (before iteration 1) → STOP immediately, verify the WRITER agentType and TASK, then re-dispatch |
 | PRE-GUARD-0 (reviewer health) | mandatory reviewer returns null/garbage → STOP, escalate "mandatory reviewer health check failed" |
 | EXIT-READY | no must-fix AND no regression (no new fingerprints vs prior round) → DONE, ready to merge |
-| HARD CAP | iteration ≥ 10 with findings remaining → STOP, escalate (writer can't converge) |
+| HARD CAP | iteration ≥ 10 with findings remaining → STOP, escalate (writer can't converge, or reviewers keep reversing each other — message flags both) |
+| OSCILLATION (not a stop) | iteration ≥ 3 and the change matches a state reviewed ≥2 rounds ago → invoke the senior arbiter to LOCK one decision, then continue |
+| OSCILLATION-UNRESOLVED | still cycling after 2 arbiter rulings → STOP, escalate with competing findings + arbiter rationale |
 | STAGNATION | iteration ≥ 2 and the fixer returned byte-identical files → STOP, escalate (writer stuck) |
 
 A supplementary reviewer or test-runner returning null does NOT fail the loop — record it unavailable, drop its
-findings, proceed. A stop (WRITER-EMPTY / PRE-GUARD-0 / HARD CAP / STAGNATION) means escalate to the user: name the
-condition and quote the remaining findings. Only EXIT-READY (`stoppedBy === null`) is mergeable.
+findings, proceed. **OSCILLATION is not a stop** — when reviewers ping-pong on a subjective point (round N asks A,
+round N+1 reverses to B, and the change cycles), the loop auto-invokes a senior arbiter to lock one decision (fed to
+all later reviewers + the fixer as spec), so it converges instead of burning to the cap; surface any arbiter ruling
+to the user. A stop (WRITER-EMPTY / PRE-GUARD-0 / HARD CAP / OSCILLATION-UNRESOLVED / STAGNATION) means escalate to
+the user: name the condition and quote the remaining findings. Only EXIT-READY (`stoppedBy === null`) is mergeable.
 
 ## Rules
 
