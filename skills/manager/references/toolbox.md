@@ -54,9 +54,9 @@ You (the orchestrator) call these directly — they are not subagents. Prefer th
 | `jetbrains` (PyCharm MCP) | user | `search_symbol`, `get_symbol_info`, `search_in_files_by_text`, `search_in_files_by_regex`, `find_files_by_name_keyword`, `rename_refactoring`, `get_file_problems`, `read_file`, `execute_terminal_command` | **live PyCharm IDE index** — prefer over grep/codebase-memory for symbol lookup, go-to-definition, call graph, inspections; `read_file` reads into JARs + decompiles .class; always pass `projectPath` param; requires PyCharm open |
 | `codebase-memory-mcp` | global | `index_status`, `index_repository`, `search_graph`, `get_code_snippet`, `trace_path`, `search_code`, `get_architecture`, `query_graph` | indexed code discovery — second choice (async graph); use when jetbrains is unavailable |
 | `context7` (context7 plugin) | global | `mcp__plugin_context7_context7__resolve-library-id`, `…__query-docs` | **mandatory grounding** — current library/framework docs **and best practices**; query every touched library twice (API + best practices); your job, not a subagent's (see `grounding.md`) |
-| `postgres-statuses` | global | `mcp__postgres-statuses__query` | run SQL against the status-service Postgres for inspection (read-only intent) |
+| local Postgres (server name varies) | global | `mcp__<postgres-server>__query` | run SQL against a locally-configured project Postgres for inspection (read-only intent); resolve the exact tool name via ToolSearch |
 | `ide` | built-in | `mcp__ide__getDiagnostics` | LSP / type diagnostics for open files |
-| `github` | project (`1642_20_status`) | GitHub PR / issue / API tools | GitHub ops — may be dormant if the server isn't connected this session |
+| `github` | project-scoped | GitHub PR / issue / API tools | GitHub ops — may be dormant if the server isn't connected this session |
 
 ## Plugins & the full agent inventory
 
