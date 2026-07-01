@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url));
 const cd = readFileSync(join(here, '..', 'skills', 'code-discovery', 'SKILL.md'), 'utf8');
 const managerBody = readFileSync(join(here, '..', 'skills', 'manager', 'SKILL.md'), 'utf8');
+const toolbox = readFileSync(join(here, '..', 'skills', 'manager', 'references', 'toolbox.md'), 'utf8');
 
 /** Return the markdown of the section started by the first heading matching headingRegex,
  *  up to (not including) the next heading of the same or higher level. null if not found. */
@@ -102,4 +103,11 @@ test('manager Process section delegates code search to the code-discovery skill'
     'manager Process section must invoke the code-discovery skill for code search');
   assert.match(processSection, /jetbrains/i,
     'manager Process section must still name jetbrains as the preferred code-search tool');
+});
+
+test('manager toolbox.md points the ladder at the code-discovery skill', () => {
+  // The MCP rows stayed in toolbox as inventory, but the priority ladder moved to code-discovery;
+  // lock the pointer that replaced the moved ordering so toolbox can't silently re-own the ladder.
+  assert.match(toolbox, /code-discovery/,
+    'toolbox.md must point the code-search ladder at the code-discovery skill');
 });

@@ -15,10 +15,20 @@
 ports="${JETBRAINS_MCP_PROBE_PORTS:-64342 64343 64344 64345}"
 host="${JETBRAINS_MCP_PROBE_HOST:-127.0.0.1}"
 
+# Connect test with a hard 1s cap: a *refused* port returns instantly, but a *filtered/dropped*
+# port (e.g. a Windows reserved range) would block on SYN-retransmit and stall SessionStart.
+probe_port() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 1 bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null
+  else
+    (exec 3<>"/dev/tcp/$1/$2") 2>/dev/null
+  fi
+}
+
 found=""
 for p in $ports; do
-  # Open a bidirectional fd inside a subshell; connect refused -> non-zero, no data written.
-  if (exec 3<>"/dev/tcp/$host/$p") 2>/dev/null; then
+  # Open then immediately close a TCP connection; no data written to a live SSE port.
+  if probe_port "$host" "$p"; then
     found="$p"
     break
   fi
