@@ -1,9 +1,10 @@
-// TDD guard for JetBrains MCP integration in the /manager skill.
+// TDD guard for JetBrains MCP integration, now owned by the extracted `code-discovery` skill.
 //
 // PyCharm 2025.2+ ships a built-in MCP server (com.intellij.mcpServer) that exposes the live
-// IDE index over SSE at http://localhost:64342/sse. These tests assert that the skill
-// documents it correctly so the orchestrator prefers live IDE tools over raw Grep/Read
-// for code-structure questions (symbol search, references, go-to-definition).
+// IDE index over SSE at http://localhost:64342/sse. These tests assert that the code-discovery
+// skill documents the jetbrains → codebase-memory → grep ladder so the orchestrator prefers live
+// IDE tools over raw Grep/Read for code-structure questions (symbol search, references, go-to-def),
+// and that the `manager` skill delegates code search to code-discovery.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,9 +13,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const skillDir = join(here, '..', 'skills', 'manager');
-const toolbox = readFileSync(join(skillDir, 'references', 'toolbox.md'), 'utf8');
-const body = readFileSync(join(skillDir, 'SKILL.md'), 'utf8');
+const cd = readFileSync(join(here, '..', 'skills', 'code-discovery', 'SKILL.md'), 'utf8');
+const managerBody = readFileSync(join(here, '..', 'skills', 'manager', 'SKILL.md'), 'utf8');
 
 /** Return the markdown of the section started by the first heading matching headingRegex,
  *  up to (not including) the next heading of the same or higher level. null if not found. */
@@ -42,99 +42,64 @@ function sectionAfter(md, headingRegex) {
   return lines.slice(start, end).join('\n');
 }
 
-const mcpSection = sectionAfter(toolbox, /MCP servers available/i);
-const processSection = sectionAfter(body, /^## Process/);
+const processSection = sectionAfter(managerBody, /^## Process/);
 
-// ─── toolbox.md — MCP servers table ───────────────────────────────────────
+// ─── code-discovery skill documents the jetbrains-first ladder ─────────────
 
-test('toolbox.md has a "MCP servers" section', () => {
-  assert.ok(mcpSection, 'toolbox.md must contain a "MCP servers" section');
+test('code-discovery SKILL.md exists and names jetbrains', () => {
+  assert.match(cd, /jetbrains/i, 'code-discovery must document the jetbrains MCP');
 });
 
-test('toolbox.md MCP servers table has a jetbrains row', () => {
-  assert.ok(mcpSection, 'MCP servers section missing');
-  assert.match(mcpSection, /jetbrains/i,
-    'toolbox.md MCP table must include a jetbrains row');
+test('code-discovery documents the symbol search tool', () => {
+  assert.match(cd, /search_symbol|search_in_files/i,
+    'code-discovery must document the symbol search tool for jetbrains MCP');
 });
 
-test('toolbox.md jetbrains row documents symbol search tool', () => {
-  assert.ok(mcpSection, 'MCP servers section missing');
-  // search_symbol or search_in_files_by_text — the key symbol-discovery tool
-  assert.match(mcpSection, /search_symbol|search_in_files/i,
-    'toolbox.md must document the symbol search tool for jetbrains MCP');
+test('code-discovery documents get_symbol_info or find_usages tool', () => {
+  assert.match(cd, /get_symbol_info|find_usages|find_referencing/i,
+    'code-discovery must document symbol-info or find-usages tool for jetbrains MCP');
 });
 
-test('toolbox.md jetbrains row documents get_symbol_info or find_usages tool', () => {
-  assert.ok(mcpSection, 'MCP servers section missing');
-  assert.match(mcpSection, /get_symbol_info|find_usages|find_referencing/i,
-    'toolbox.md must document symbol-info or find-usages tool for jetbrains MCP');
+test('code-discovery references the live IDE index (not raw grep)', () => {
+  assert.match(cd, /IDE index|live index|ide index|PyCharm index/i,
+    'code-discovery must explain that jetbrains MCP uses the live IDE index');
 });
 
-test('toolbox.md jetbrains row references the live IDE index (not raw grep)', () => {
-  assert.ok(mcpSection, 'MCP servers section missing');
-  assert.match(mcpSection, /IDE index|live index|ide index|PyCharm index/i,
-    'toolbox.md must explain that jetbrains MCP uses the live IDE index');
-});
-
-// ─── toolbox.md — jetbrains is the FIRST MCP row ─────────────────────────
-
-test('toolbox.md lists jetbrains as the first MCP server (highest priority)', () => {
-  assert.ok(mcpSection, 'MCP servers section missing');
-  // jetbrains row must appear before codebase-memory-mcp row
-  const jbIdx = mcpSection.indexOf('jetbrains');
-  const cbmIdx = mcpSection.indexOf('codebase-memory-mcp');
-  assert.ok(jbIdx !== -1, 'jetbrains row missing from MCP table');
-  assert.ok(cbmIdx !== -1, 'codebase-memory-mcp row missing from MCP table');
+test('code-discovery lists jetbrains before codebase-memory-mcp (priority order)', () => {
+  const jbIdx = cd.indexOf('jetbrains');
+  const cbmIdx = cd.indexOf('codebase-memory-mcp');
+  assert.ok(jbIdx !== -1, 'jetbrains missing from code-discovery');
+  assert.ok(cbmIdx !== -1, 'codebase-memory-mcp missing from code-discovery');
   assert.ok(jbIdx < cbmIdx,
-    'jetbrains must appear BEFORE codebase-memory-mcp in the MCP table (highest priority first)');
+    'jetbrains must appear BEFORE codebase-memory-mcp in code-discovery (highest priority first)');
 });
 
-// ─── SKILL.md — Process section prioritises IDE tools for symbol search ──
-
-test('SKILL.md Process section exists', () => {
-  assert.ok(processSection, 'SKILL.md must contain a "## Process" section');
+test('code-discovery documents an explicit fallback chain', () => {
+  assert.match(cd, /fall.?back|unavailable|fails|not.*reachable/i,
+    'code-discovery must describe when to fall back from jetbrains to the next option');
 });
 
-test('SKILL.md Process section mentions jetbrains MCP as preferred for symbol/code search', () => {
-  assert.ok(processSection, 'Process section missing');
+test('code-discovery names Grep/Read as last resort (after both MCP servers)', () => {
+  assert.match(cd, /last.?resort|only.*when.*both|both.*MCP.*fail/i,
+    'code-discovery must describe Grep/Read as last resort, not a first-line tool');
+});
+
+test('code-discovery has an explicit "never grep for symbol lookup" rule', () => {
+  assert.match(cd, /never.*grep.*symbol|never.*reach.*grep|never.*grep.*reference/i,
+    'code-discovery must explicitly forbid using Grep for symbol lookup when jetbrains is reachable');
+});
+
+test('code-discovery references the jetbrains-mcp-probe SessionStart hook', () => {
+  assert.match(cd, /jetbrains-mcp-probe/i,
+    'code-discovery must reference the jetbrains-mcp-probe hook that reports MCP reachability');
+});
+
+// ─── manager delegates code search to code-discovery ───────────────────────
+
+test('manager Process section delegates code search to the code-discovery skill', () => {
+  assert.ok(processSection, 'manager SKILL.md must contain a "## Process" section');
+  assert.match(processSection, /code-discovery/i,
+    'manager Process section must invoke the code-discovery skill for code search');
   assert.match(processSection, /jetbrains/i,
-    'SKILL.md Process section must name jetbrains MCP as the preferred tool for symbol lookup');
-});
-
-test('SKILL.md Process section puts jetbrains before grep for code-structure questions', () => {
-  assert.ok(processSection, 'Process section missing');
-  assert.match(processSection, /prefer.*jetbrains|jetbrains.*prefer|jetbrains.*before.*grep|symbol.*jetbrains/i,
-    'SKILL.md must instruct the orchestrator to prefer jetbrains MCP over grep for symbol questions');
-});
-
-// ─── SKILL.md — explicit fallback chain: jetbrains → codebase-memory → Grep ──
-
-test('SKILL.md Process section documents an explicit fallback chain', () => {
-  assert.ok(processSection, 'Process section missing');
-  // Must mention "fallback" or "fall back" in relation to the code-search priority
-  assert.match(processSection, /fall.?back|unavailable|fails|not.*open/i,
-    'SKILL.md must describe when to fall back from jetbrains to the next option');
-});
-
-test('SKILL.md Process section names codebase-memory-mcp as the jetbrains fallback (not grep)', () => {
-  assert.ok(processSection, 'Process section missing');
-  // The fallback from jetbrains must be codebase-memory-mcp, not grep directly
-  const jbIdx = processSection.indexOf('jetbrains');
-  const cbmIdx = processSection.indexOf('codebase-memory-mcp');
-  assert.ok(jbIdx !== -1, 'jetbrains missing from Process section');
-  assert.ok(cbmIdx !== -1, 'codebase-memory-mcp missing from Process section');
-  assert.ok(jbIdx < cbmIdx,
-    'jetbrains must appear before codebase-memory-mcp in Process (priority order)');
-});
-
-test('SKILL.md Process section names Grep/Read as last resort (after both MCP servers)', () => {
-  assert.ok(processSection, 'Process section missing');
-  assert.match(processSection, /last.?resort|only.*when.*both|raw.*Grep.*last|Grep.*only.*when/i,
-    'SKILL.md must describe Grep/Read as last resort, not a first-line tool');
-});
-
-test('SKILL.md Process section has explicit "never use Grep for symbol lookup" rule', () => {
-  assert.ok(processSection, 'Process section missing');
-  assert.match(processSection, /never.*grep.*symbol|never.*grep.*reference|never.*reach.*grep/i,
-    'SKILL.md must explicitly forbid using Grep for symbol lookup when jetbrains is reachable');
+    'manager Process section must still name jetbrains as the preferred code-search tool');
 });

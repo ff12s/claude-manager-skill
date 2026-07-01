@@ -1,7 +1,8 @@
 # Review Loop — executable Workflow script & detailed contract
 
-Read this when running the Review Loop (see `../SKILL.md` → "Review Loop"). The body holds the compact
-semantic contract; this file holds the executable script, the schemas, and the per-step detail.
+Read this when running the Review Loop (see `SKILL.md` in this skill, and the `manager` skill → "Review Loop").
+The body holds the compact semantic contract; this file holds the executable script, the schemas, and the
+per-step detail.
 
 ## Contents
 - How to run / adapt the script

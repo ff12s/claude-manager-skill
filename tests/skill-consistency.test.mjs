@@ -68,3 +68,38 @@ test('hygiene rule D: direct-edit + read-only review fallback for cross-repo/mec
   assert.match(hygiene, /direct edit/i);
   assert.match(hygiene, /read-only review/i);
 });
+
+// ─── every skill in the monorepo has valid frontmatter ─────────────────────
+
+const skillsRoot = join(here, '..', 'skills');
+const ALL_SKILLS = ['manager', 'code-discovery', 'context7-grounding', 'review-loop'];
+
+for (const name of ALL_SKILLS) {
+  test(`skill "${name}" has valid frontmatter (name + description)`, () => {
+    const md = readFileSync(join(skillsRoot, name, 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
+    assert.ok(md.startsWith('---\n'), `${name}/SKILL.md must open with a YAML frontmatter block`);
+    const fm = md.slice(4, md.indexOf('\n---', 4));
+    const nameMatch = fm.match(/^name:\s*(.+)$/m);
+    assert.ok(nameMatch, `${name}/SKILL.md frontmatter must declare name:`);
+    assert.equal(nameMatch[1].trim(), name, `${name}/SKILL.md frontmatter name must equal "${name}"`);
+    const descMatch = fm.match(/^description:\s*(.+)$/m);
+    assert.ok(descMatch && descMatch[1].trim().length > 20,
+      `${name}/SKILL.md frontmatter must declare a non-trivial description:`);
+  });
+}
+
+// ─── manager delegates to the three extracted sub-skills ───────────────────
+
+for (const sub of ['code-discovery', 'context7-grounding', 'review-loop']) {
+  test(`manager SKILL.md references the "${sub}" sub-skill`, () => {
+    assert.match(body, new RegExp(sub),
+      `manager SKILL.md must reference the extracted ${sub} skill`);
+  });
+}
+
+test('manager SKILL.md no longer points at the moved reference files', () => {
+  assert.doesNotMatch(body, /references\/review-loop\.md/,
+    'manager must not link references/review-loop.md (moved to the review-loop skill)');
+  assert.doesNotMatch(body, /references\/grounding\.md/,
+    'manager must not link references/grounding.md (moved to the context7-grounding skill)');
+});
