@@ -82,6 +82,8 @@ Copy-Item -Recurse claude-manager-skill\skills\manager $env:USERPROFILE\.claude\
 установки. Без этих компонентов скилл активируется, но часть диспатч-таблицы будет недоступна — таблицу под
 свой набор плагинов стоит подправить (`references/dispatch-table.md`).
 
+> 📸 Снимок реально установленного окружения (версии плагинов, статусы MCP, хуки) — [`docs/environment.md`](docs/environment.md).
+
 ### 1. Плагины-маркетплейсы (устанавливаются через Claude Code)
 
 Плагины устанавливаются из встроенного маркетплейса Claude Code: откройте `/marketplace` или пропишите
