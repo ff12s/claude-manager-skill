@@ -128,6 +128,23 @@ for (const name of ALL_SKILLS) {
   });
 }
 
+// ─── stop-condition names stay consistent across the three files that document them ───
+// The stop-conditions list is duplicated in manager/SKILL.md, review-loop/SKILL.md and
+// review-loop/review-loop.md; a past edit left one copy stale. This guards every name in all three.
+test('stop-condition names are consistent across manager, the review-loop skill, and review-loop.md', () => {
+  const files = {
+    'manager/SKILL.md': body,
+    'review-loop/SKILL.md': readFileSync(join(skillsRoot, 'review-loop', 'SKILL.md'), 'utf8'),
+    'review-loop/review-loop.md': readFileSync(join(skillsRoot, 'review-loop', 'review-loop.md'), 'utf8'),
+  };
+  const NAMES = ['WRITER-EMPTY', 'PRE-GUARD-0', 'EXIT-READY', 'HARD CAP', 'OSCILLATION-UNRESOLVED', 'STAGNATION'];
+  for (const [file, text] of Object.entries(files)) {
+    for (const n of NAMES) {
+      assert.ok(text.includes(n), `${file} must document the "${n}" stop condition (drift guard)`);
+    }
+  }
+});
+
 // ─── manager delegates to the three extracted sub-skills ───────────────────
 
 for (const sub of ['code-discovery', 'context7-grounding', 'review-loop']) {

@@ -149,6 +149,26 @@ test('decision ledger: a same-key decision OVERWRITES (Map dedupe by file|line),
   assert.equal((p.match(/a\.py:7/g) || []).length, 1, 'exactly one ledger entry for the same file|line');
 });
 
+test('decision ledger: two DIFFERENT decisions sharing file|line (cross-file "":0) both survive', async () => {
+  // Key must include the decision text — keying on file|line alone collapses two distinct cross-file
+  // ("":0) rulings into one, silently dropping the earlier defended decision.
+  const caps = { fixPrompts: [] };
+  const decX = { file: '', line: 0, decision: 'kept the outbox publish outside the tx', rationale: 'at-least-once' };
+  const decY = { file: '', line: 0, decision: 'used advisory lock namespace 16420020', rationale: 'must stay unique' };
+  const res = await runScenario(
+    {
+      writer: A,
+      reviews: [demand('B'), demand('B'), demand('B'), clean],
+      fixes: [snapDec('D1', 25, [decX]), snapDec('D2', 40, [decY]), snap('D3', 55)],
+    },
+    caps,
+  );
+  assert.equal(res.stoppedBy, null, `expected clean exit, got: ${res.stoppedBy}`);
+  const p = caps.fixPrompts[2];
+  assert.match(p, /outbox publish outside the tx/, 'first cross-file decision must survive to the third fixer');
+  assert.match(p, /advisory lock namespace 16420020/, 'second cross-file decision must also survive');
+});
+
 test('OSCILLATION: the locked decision is injected into later reviewer prompts as spec', async () => {
   const caps = { reviewPrompts: [] };
   await runScenario({ writer: A, reviews: [demand('B'), demand('A'), demand('B'), clean], fixes: [B, A, C] }, caps);

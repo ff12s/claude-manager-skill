@@ -24,8 +24,9 @@ The full contract, the model+effort tiers, the `power()` compatibility resolver,
   serialization/SQL); `silent-failure-hunter` (error handling / external I/O / background/async/outbox/retry);
   `comment-analyzer` (comment or docstring changes). Set `TESTER` to
   `backend-development:backend-development-test-automator` for any repo with a runnable test suite (`''` to skip).
-- **Ready gate = no must-fix (critical/high) AND no regression.** Stop conditions: WRITER-EMPTY, PRE-GUARD-0,
-  EXIT-READY, HARD CAP, STAGNATION (see `review-loop.md`).
+- **Ready gate = no must-fix (critical/high).** Medium/low are advisory and never block; "regression" is only a
+  fixer tag, not a gate term. Stop conditions: WRITER-EMPTY, PRE-GUARD-0, EXIT-READY, HARD CAP, OSCILLATION /
+  OSCILLATION-UNRESOLVED, STAGNATION (see `review-loop.md`).
 - **Config lives inline** in the script as JS constants (WRITER, REVIEWER, SUPPLEMENTARY, WRITER_POWER, TASK,
   GROUNDING, SCOPE_HINT, TESTER, TESTER_POWER) — do **not** pass via `args`. Copy `TEST_PROMPT` / `REVIEW_PROMPT`
   verbatim; never narrow them at dispatch time.

@@ -28,6 +28,8 @@ const phase = () => {};
 const parallel = async (thunks) => Promise.all(thunks.map((t) => t()));
 
 const snap = (size) => ({ snapshot: [{ path: 'a.py', size, head: 'head', tail: 'tail' }] });
+const multiSnap = (files) => ({ snapshot: files.map(([path, size]) => ({ path, size, head: `h${path}`, tail: `t${path}` })) });
+const hsnap = (size, hash) => ({ snapshot: [{ path: 'a.py', size, head: 'head', tail: 'tail', hash }] });
 const H = (file, line) => ({ severity: 'high', file, line, first8: `fp ${file} ${line}`, explanation: 'e' });
 const clean = { findings: [] };
 
@@ -129,70 +131,122 @@ test('independence: review dispatches never receive prior findings (no FP: tags 
   }
 });
 
-// --- Regression guard: fingerprint-based, any severity ---
-// A "regression" = a finding whose fingerprint (file|line|first8) did NOT appear in the
-// previous round's review. Only such findings block EXIT-READY; a medium that persists
-// across rounds with the same fingerprint is NOT a regression and does not block exit.
+// --- Gate = must-fix only; medium/low (incl. new fingerprints) are advisory and never block ---
+// The gate is `mustfix === 0`. A "regression" (a finding whose fingerprint file|line|first8 did NOT
+// appear in the previous round) is computed only to TAG findings for the fixer — never to gate. first8 is
+// self-reported free text, so a fresh reviewer rewording an issue mints a "new" fingerprint; gating on that
+// never converges. A genuinely new must-fix still blocks because it is must-fix.
 
 const M = (file, line, tag) => ({ severity: 'medium', file, line, first8: `${tag}`, explanation: 'e' });
 const L = (file, line, tag) => ({ severity: 'low', file, line, first8: `${tag}`, explanation: 'e' });
 
-test('no-regression: medium with same fingerprint persisting after fix does NOT block EXIT-READY', async () => {
-  // Round 1: must-fix + medium M. priorFPs = {fp(H), fp(M)}.
-  // Round 2: same medium M (same fingerprint) → hasRegression=false → EXIT-READY at iter 2.
+test('gate: a persisting medium does NOT block EXIT-READY once must-fix is cleared', async () => {
   const res = await runScenario({
     writer: snap(10),
     rounds: [
       { reviews: [{ findings: [H('a.py', 1), M('b.py', 2, 'orig medium')] }], fix: snap(20) },
-      { reviews: [{ findings: [M('b.py', 2, 'orig medium')] }] },  // same FP as round 1
+      { reviews: [{ findings: [M('b.py', 2, 'orig medium')] }] },  // no must-fix → exit
     ],
   });
   assert.equal(res.stoppedBy, null, `expected clean exit, got: ${res.stoppedBy}`);
-  assert.equal(res.iterations, 2, 'same-fingerprint medium must not block EXIT-READY');
+  assert.equal(res.iterations, 2, 'a persisting medium must not block EXIT-READY');
 });
 
-test('regression: new medium introduced by fixer blocks EXIT-READY, loop continues to fix it', async () => {
-  // Round 1: must-fix H. priorFPs = {fp(H)}.
-  // Round 2: no must-fix, but NEW medium N (fingerprint not in priorFPs) → regression → fix dispatched.
-  // Round 3: clean → EXIT-READY at iter 3.
+test('gate: a NEW medium introduced by the fixer does NOT block EXIT-READY (regression only tags)', async () => {
+  // Round 1: must-fix H → fix. Round 2: no must-fix, only a NEW medium (fresh fingerprint) → EXIT-READY at iter 2.
   const res = await runScenario({
     writer: snap(10),
     rounds: [
       { reviews: [{ findings: [H('a.py', 1)] }], fix: snap(20) },
-      { reviews: [{ findings: [M('b.py', 2, 'new medium')] }], fix: snap(30) },  // new FP → regression
-      { reviews: [clean] },
+      { reviews: [{ findings: [M('b.py', 2, 'new medium')] }] },  // new FP, but not must-fix → does NOT block
     ],
   });
   assert.equal(res.stoppedBy, null, `expected clean exit, got: ${res.stoppedBy}`);
-  assert.equal(res.iterations, 3, 'regression must cause loop to continue and fix before EXIT-READY');
+  assert.equal(res.iterations, 2, 'a new (regression) medium must not block the must-fix-only gate');
 });
 
-test('regression: new low introduced by fixer also blocks EXIT-READY', async () => {
+test('gate: a NEW low introduced by the fixer does NOT block EXIT-READY', async () => {
   const res = await runScenario({
     writer: snap(10),
     rounds: [
       { reviews: [{ findings: [H('a.py', 1)] }], fix: snap(20) },
-      { reviews: [{ findings: [L('c.py', 5, 'new low')] }], fix: snap(30) },  // new FP → regression
-      { reviews: [clean] },
+      { reviews: [{ findings: [L('c.py', 5, 'new low')] }] },  // new FP low → does NOT block
     ],
   });
   assert.equal(res.stoppedBy, null, `expected clean exit, got: ${res.stoppedBy}`);
-  assert.equal(res.iterations, 3, 'low-severity regression must also block EXIT-READY');
+  assert.equal(res.iterations, 2, 'a new low must not block the must-fix-only gate');
 });
 
-test('HARD CAP fires when regression findings keep appearing across 10 iterations', async () => {
-  // Each round: must-fix fixed but fixer introduces a new medium with a new fingerprint.
-  // priorFPs always lacks the new medium → hasRegression=true → loop continues until cap.
+test('gate: a fresh medium/low every round never drives the loop to HARD CAP', async () => {
+  // Once must-fix is cleared (round 1), a new advisory finding each round must NOT keep the loop running.
   const rounds = [
-    { reviews: [{ findings: [H('a.py', 1), M('b.py', 2, 'm0')] }], fix: snap(101) },  // round 1: must-fix
+    { reviews: [{ findings: [H('a.py', 1), M('b.py', 2, 'm0')] }], fix: snap(101) },
     ...Array.from({ length: 10 }, (_, i) => ({
-      reviews: [{ findings: [M(`f${i}.py`, i + 1, `m${i + 1}`)] }],  // new medium each round
+      reviews: [{ findings: [M(`f${i}.py`, i + 1, `m${i + 1}`)] }],  // new medium each round, no must-fix
       fix: snap(102 + i),
     })),
   ];
   const res = await runScenario({ writer: snap(10), rounds });
-  assert.match(res.stoppedBy, /HARD CAP/);
-  assert.equal(res.iterations, 10);
+  assert.equal(res.stoppedBy, null, `advisory-only findings must exit ready, got: ${res.stoppedBy}`);
+  assert.equal(res.iterations, 2, 'exit as soon as must-fix clears; advisory findings never reach the cap');
+});
+
+// --- snapshot merge (a fix touching a subset of files must not truncate the changeset) ---
+
+test('snapshot merge: a fix touching a subset of files keeps the writer\'s other files in result.files', async () => {
+  const res = await runScenario({
+    writer: multiSnap([['a.py', 10], ['b.py', 20], ['c.py', 30]]),
+    rounds: [
+      { reviews: [{ findings: [H('a.py', 1)] }], fix: multiSnap([['a.py', 15]]) },  // fixer touches only a.py
+      { reviews: [clean] },
+    ],
+  });
+  assert.equal(res.stoppedBy, null, `expected clean exit, got: ${res.stoppedBy}`);
+  assert.deepEqual([...res.files].sort(), ['a.py', 'b.py', 'c.py'], 'a subset fix must not drop untouched files');
+});
+
+// --- changed-files injection (fresh reviewers get the changeset paths, not findings/fix-history) ---
+
+test('changed-files: reviewers receive the changed file paths (paths only — no findings, no fix history)', async () => {
+  const prompts = [];
+  await runScenario({ writer: multiSnap([['a.py', 10], ['b.py', 20]]), rounds: [{ reviews: [clean] }] }, prompts);
+  assert.ok(prompts.length >= 1, 'expected at least one review prompt');
+  assert.match(prompts[0], /<changed-files>/, 'reviewer must receive a changed-files block');
+  assert.match(prompts[0], /a\.py/);
+  assert.match(prompts[0], /b\.py/);
+  assert.doesNotMatch(prompts[0], /FP:/, 'changed-files must carry no fixer fingerprint tags');
+});
+
+// --- content hash: exact change detection when both snapshots carry `hash` ---
+
+test('content hash: an interior edit (same size/head/tail, different hash) is NOT stagnation', async () => {
+  // Without the hash field this reads as byte-identical → false STAGNATION. The hash makes it exact.
+  const res = await runScenario({
+    writer: hsnap(10, 'h1'),
+    rounds: [
+      { reviews: [{ findings: [H('a.py', 1)] }], fix: hsnap(10, 'h2') },  // real edit hidden from head/tail
+      { reviews: [clean] },
+    ],
+  });
+  assert.equal(res.stoppedBy, null, `interior edit must not read as stagnation, got: ${res.stoppedBy}`);
+  assert.equal(res.iterations, 2);
+});
+
+test('content hash: an identical hash (no real change) IS stagnation', async () => {
+  const res = await runScenario({
+    writer: hsnap(10, 'h1'),
+    rounds: [
+      { reviews: [{ findings: [H('a.py', 1)] }], fix: hsnap(10, 'h1') },  // same hash → no change
+      { reviews: [{ findings: [H('b.py', 2)] }] },
+    ],
+  });
+  assert.match(res.stoppedBy, /STAGNATION/);
+  assert.equal(res.iterations, 2);
+});
+
+test('static: SNAP_SCHEMA carries an optional hash field and the writer/fixer prompt requests git hash-object', () => {
+  assert.match(SRC, /hash:\s*\{\s*type:\s*'string'/);
+  assert.match(SRC, /hash-object/);
 });
 
 // --- WRITER-EMPTY guard ---
