@@ -99,8 +99,13 @@ One Workflow call per code-changing branch. The executable script, tiers, and re
   report reads "success" while the disk never changed.
 - **Trust the disk, not the report.** After every Workflow, verify with `git -C <repo> status` / `diff` and grep
   for the expected change; never trust the returned `files` / `stoppedBy` in the report alone.
-- **Cross-repo or mechanical edits: prefer a direct edit + a read-only review** over a writer subagent — the writer
-  can reinterpret the requirement or revert unrelated changes (a subagent limitation, not a tool bug).
+- **Cross-repo edits stay dispatched.** A writer subagent inherits the shell CWD and can edit the wrong repo, so
+  target the right tree with absolute paths / `git -C <path>` — do not "fix it inline" just to dodge that hazard.
+- **Direct edit is a bounded exception, not a preference.** Edit inline yourself ONLY when the change is **≤2 files
+  AND limited to rename / typo / comment / string-literal / import-reorder with no logic change**; anything beyond
+  that goes through a specialist (the writer can otherwise reinterpret the requirement or revert unrelated changes).
+  Even for this bounded case the Review Loop still runs — a read-only reviewer over the diff — so the review
+  invariant never lifts.
 
 ## Process
 

@@ -63,10 +63,16 @@ test('hygiene rule C: verify the disk after a Workflow, do not trust the report'
   assert.match(hygiene, /report/i);
 });
 
-test('hygiene rule D: direct-edit + read-only review fallback for cross-repo/mechanical work', () => {
+test('hygiene rule D: direct edit is a BOUNDED exception (≤2 files, rename/typo class) with review still required', () => {
   assert.ok(hygiene, 'hygiene section missing');
-  assert.match(hygiene, /direct edit/i);
-  assert.match(hygiene, /read-only review/i);
+  assert.match(hygiene, /(≤\s*2|two)\s*files/i, 'the direct-edit exception must be bounded by a file count');
+  assert.match(hygiene, /rename|typo/i, 'the exception must enumerate the trivial change classes it covers');
+  assert.match(hygiene, /review/i, 'a review must still run even for the bounded exception');
+});
+
+test('no unbounded escape hatch: SKILL.md never states a "prefer a direct edit" preference', () => {
+  assert.doesNotMatch(body, /prefer a direct edit/i,
+    'the always-delegate rule must not be cancelled by a "prefer a direct edit" preference anywhere');
 });
 
 // ─── dispatch section states the Workflow opt-in explicitly ────────────────
