@@ -157,12 +157,12 @@ script does not.
 - **Output:** reviewers return `findings[]` (severity, file, line, first8, explanation); empty array = clean. The
   fixer (the ORIGINAL writer) gets this round's findings tagged as `MUST-FIX`, `REGRESSION`, or severity, plus its
   own defended `<prior-decisions>` so it does not silently reverse itself round to round.
-- **Ready gate = no must-fix (critical/high) AND no regression.** A **regression** is a finding whose fingerprint
-  (`file|line|first8`) did NOT appear in the previous round's findings — i.e., the fixer introduced it. Fingerprint
-  tracking is cross-round; iteration 1 has no prior round so regressions are never detected there. A medium or low
-  finding that persists with the same fingerprint across rounds is NOT a regression and does not block merge.
+- **Ready gate = no must-fix (critical/high).** Medium/low findings are advisory and never block merge — a fresh
+  reviewer always nitpicks a new low, so gating on them (or on their fingerprints) never converges. A **regression**
+  (a finding whose fingerprint `file|line|first8` did NOT appear in the previous round — the fixer introduced it) is
+  computed only to TAG a finding for the fixer; a genuinely new must-fix still blocks because it is must-fix.
 - **Oscillation guard (arbiter tiebreaker):** if the change ping-pongs — the state under review matches one from ≥2
-  rounds ago while the ready gate is still unmet (must-fix or a regression) — reviewers are reversing each other on a subjective point. The loop
+  rounds ago while must-fix is still open — reviewers are reversing each other on a subjective point. The loop
   auto-dispatches ONE senior arbiter (`comprehensive-review:comprehensive-review-architect-review`, opus @ xhigh) to
   pick and LOCK a single decision; that decision is injected into all later reviewers + the fixer as spec, so the loop
   converges instead of running to the cap. Detection keys off snapshot cycling (`snapEqual`), not fingerprints, so it
@@ -176,7 +176,7 @@ script does not.
 |---|---|
 | WRITER-EMPTY | writer returned an empty snapshot (before iteration 1) → STOP immediately, verify the WRITER agentType and TASK, then re-dispatch |
 | PRE-GUARD-0 (reviewer health) | mandatory reviewer returns null/garbage → STOP, escalate "mandatory reviewer health check failed" |
-| EXIT-READY | no must-fix AND no regression (no new fingerprints vs prior round) → DONE, ready to merge |
+| EXIT-READY | no must-fix (critical/high); medium/low are advisory and never block → DONE, ready to merge |
 | HARD CAP | iteration ≥ 10 with findings remaining → STOP, escalate (writer can't converge, or reviewers keep reversing each other — message flags both) |
 | OSCILLATION (not a stop) | iteration ≥ 3 and the change matches a state reviewed ≥2 rounds ago → invoke the senior arbiter to LOCK one decision, then continue |
 | OSCILLATION-UNRESOLVED | still cycling after 2 arbiter rulings → STOP, escalate with competing findings + arbiter rationale |

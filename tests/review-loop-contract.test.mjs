@@ -66,17 +66,18 @@ test('the stop-conditions table lists the real conditions; obsolete guard names 
   // These named guards were removed and must not reappear as standalone table entries.
   assert.doesNotMatch(tableText, /sticky/i);
   assert.doesNotMatch(tableText, /no-progress/i);
-  // "regression" is now intentionally part of EXIT-READY description (fingerprint-based detection).
 });
 
 test('skill no longer overclaims "5 guards" anywhere (incl. frontmatter description)', () => {
   assert.doesNotMatch(body, /5 guards/i);
 });
 
-test('ready gate: no must-fix AND no regression (new fingerprints vs prior round)', () => {
+test('ready gate: must-fix only — medium/low are advisory and never block', () => {
   assert.ok(contract, 'contract section missing');
-  assert.match(contract, /regression/i, 'contract must mention regression concept');
-  assert.match(contract, /fingerprint/i, 'contract must mention fingerprint-based detection');
+  assert.match(contract, /Ready gate = no must-fix/i, 'contract must state the must-fix-only gate');
+  assert.match(contract, /advisory/i, 'contract must state medium/low are advisory (never block)');
+  // regression stays a documented concept, but as a fixer tag — not a gate term.
+  assert.match(contract, /regression/i, 'contract must still explain the regression tag');
 });
 
 test('test-runner: contract documents running project tests in parallel with reviewers', () => {
