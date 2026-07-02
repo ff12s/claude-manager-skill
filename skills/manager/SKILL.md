@@ -55,6 +55,9 @@ ORM sessions, async, migrations…) — i.e. nearly every code change. Grounding
 
 ## Dispatch mechanism — model+effort tiers via Workflow (read before dispatching)
 
+**Invoking `/manager` IS the Workflow opt-in.** Dispatch code-changing work through Workflow; do not fall back to
+inline `Edit`/`Write` because the Workflow tool feels gated — this skill is the explicit authorization it asks for.
+
 **Every specialist runs as a Workflow `agent()` call** — the Agent tool can't set reasoning effort (no `effort`
 param, no effort frontmatter key); only Workflow's `agent(prompt, {model, effort})` pins both. The `model` in the
 opts overrides each agent's frontmatter model, so the tier you pass wins regardless of how the agent is defined.
@@ -96,10 +99,19 @@ One Workflow call per code-changing branch. The executable script, tiers, and re
   report reads "success" while the disk never changed.
 - **Trust the disk, not the report.** After every Workflow, verify with `git -C <repo> status` / `diff` and grep
   for the expected change; never trust the returned `files` / `stoppedBy` in the report alone.
-- **Cross-repo or mechanical edits: prefer a direct edit + a read-only review** over a writer subagent — the writer
-  can reinterpret the requirement or revert unrelated changes (a subagent limitation, not a tool bug).
+- **Cross-repo edits stay dispatched.** A writer subagent inherits the shell CWD and can edit the wrong repo, so
+  target the right tree with absolute paths / `git -C <path>` — do not "fix it inline" just to dodge that hazard.
+- **Direct edit is a bounded exception, not a preference.** Edit inline yourself ONLY when the change is **≤2 files
+  AND limited to rename / typo / comment / string-literal / import-reorder with no logic change**; anything beyond
+  that goes through a specialist (the writer can otherwise reinterpret the requirement or revert unrelated changes).
+  Even for this bounded case the Review Loop still runs — a read-only reviewer over the diff — so the review
+  invariant never lifts.
 
 ## Process
+
+**Before the first code-changing dispatch, state a one-line plan** — which specialist, which reviewers — then
+dispatch. You (the orchestrator) do not edit files yourself; even one-line fixes go through a specialist, except the
+bounded exception in *Workflow dispatch hygiene*.
 
 1. Understand intent. If ambiguous, ask ONE clarifying question max before dispatching, then commit.
 2. Scan the repo only as much as needed to pick specialists. For code search, **invoke the `code-discovery`
@@ -182,11 +194,11 @@ the user: name the condition and quote the remaining findings. Only EXIT-READY (
 - **Stack-specific beats generic.** Don't send a Django change to `python-pro` when `django-pro` exists.
 - **Always review.** Every code-changing dispatch enters the Review Loop with `comprehensive-review:comprehensive-review-code-reviewer`;
   add supplementary reviewers when their triggers fire.
-- **Parallel but capped — and the loop is expensive.** Reviewers fan out inside the Workflow (`parallel(...)`,
-  runtime cap ≤ min(16, cores−2)). With the 10-iteration cap, one stuck branch can cost ~`writer + 10×(reviewers +
-  fixer)` ≈ 30–40 dispatches, so the loop usually exits ready well before then but the worst case is real. Across
-  all branches in one task, **pause and confirm with the user before crossing ~40 total dispatches**, and prefer a
-  direct edit + read-only review for trivial/mechanical changes rather than spending the full loop.
+- **Parallel but capped — the loop is the default.** Reviewers fan out inside the Workflow (`parallel(...)`,
+  runtime cap ≤ min(16, cores−2)). The loop is cheap for a normal change — it usually exits ready in 1–2 rounds, so
+  run it by default and do not treat it as costly. Only genuine multi-branch fan-out approaches the worst case
+  (~`writer + 10×(reviewers + fixer)` per stuck branch); across all branches in one task, **pause and confirm with
+  the user before crossing ~40 total dispatches**.
 - **Reviewers can write.** wshobson reviewers inherit Write/Edit/Bash; for a hard read-only guarantee, say so in
   the prompt ("Read-only review. Do not edit files or run shell commands. Output the report only").
 - **Ground in docs before dispatching** (context7 first) — your job, not a subagent's. Don't dispatch an architect
