@@ -138,6 +138,64 @@ test('TESTER set: test-runner null result is non-fatal (loop exits ready, supple
   );
 });
 
+// ─── Baseline run (pre-existing test failures must not force a false HARD CAP) ───
+
+const failing = (name) => ({ severity: 'critical', file: `${name}.py`, line: 5, first8: `${name} failed`, explanation: `${name} failed: assert` });
+
+test('baseline: with TESTER set, the tester runs once BEFORE the writer', async () => {
+  const seq = [];
+  const agent = async (_prompt, opts) => {
+    seq.push(opts.phase);
+    if (opts.phase === 'Baseline') return { findings: [] };
+    if (opts.phase === 'Write') return snap(10);
+    return { findings: [] };
+  };
+  const run = new AsyncFunction('agent', 'parallel', 'phase', withTester(TESTER_TYPE));
+  await run(agent, parallel, phase);
+  assert.equal(seq[0], 'Baseline', 'first dispatch must be the baseline tester');
+  assert.ok(seq.indexOf('Baseline') < seq.indexOf('Write'), 'baseline must run before the writer');
+});
+
+test('baseline: no baseline dispatch when TESTER is empty', async () => {
+  const { calls } = await runCapturingCalls(RAW_SRC);
+  assert.equal(calls.filter((c) => c.phase === 'Baseline').length, 0, 'no baseline when TESTER is unset');
+});
+
+test('baseline: a pre-existing failing test does NOT block the gate (EXIT-READY despite a red test)', async () => {
+  const t = failing('test_legacy');
+  const agent = async (_prompt, opts) => {
+    if (opts.phase === 'Baseline') return { findings: [t] };            // already red before the change
+    if (opts.phase === 'Write') return snap(10);
+    if (opts.phase === 'Review') return opts.label === 'review:test-runner' ? { findings: [t] } : { findings: [] };
+    return { findings: [] };
+  };
+  const run = new AsyncFunction('agent', 'parallel', 'phase', withTester(TESTER_TYPE));
+  const res = await run(agent, parallel, phase);
+  assert.equal(res.stoppedBy, null, 'a baseline (pre-existing) test failure must not block merge');
+  assert.equal(res.iterations, 1, 'must exit ready on iteration 1');
+  assert.equal(res.baselineFailures.length, 1, 'the pre-existing failure must be surfaced in the report');
+});
+
+test('baseline: a NEW test failure (not in baseline) still blocks and drives a fix', async () => {
+  const legacy = failing('test_legacy');
+  const fresh = failing('test_new');
+  let round = 0;
+  const agent = async (_prompt, opts) => {
+    if (opts.phase === 'Baseline') return { findings: [legacy] };
+    if (opts.phase === 'Write') return snap(10);
+    if (opts.phase === 'Review') {
+      if (opts.label !== 'review:test-runner') return { findings: [] };
+      return round === 0 ? { findings: [legacy, fresh] } : { findings: [legacy] };  // fresh failure only round 1
+    }
+    if (opts.phase === 'Fix') { round++; return snap(20 + round); }
+    return { findings: [] };
+  };
+  const run = new AsyncFunction('agent', 'parallel', 'phase', withTester(TESTER_TYPE));
+  const res = await run(agent, parallel, phase);
+  assert.equal(res.stoppedBy, null, `expected clean exit after fixing the new failure, got: ${res.stoppedBy}`);
+  assert.equal(res.iterations, 2, 'the NEW failure must block round 1 and clear by round 2');
+});
+
 // ─── Supplementary reviewer agentType passthrough ───
 // Verify that the full registered name set in SUPPLEMENTARY flows through to agent() opts.agentType
 // exactly (no truncation or namespace mangling inside the script).
