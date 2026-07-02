@@ -103,6 +103,12 @@ test('Process section requires a commitment preamble before dispatching', () => 
   assert.match(processSec, /(don't|do not) edit files/i, 'must restate that the orchestrator does not edit files');
 });
 
+// ─── delegation rule intact (regression guard) ────────────────────────────
+test('Rules section keeps the "you don\'t implement" delegation rule', () => {
+  assert.ok(rules, 'Rules section missing');
+  assert.match(rules, /(don't|do not) implement/i, 'the orchestrator-does-not-implement rule must remain');
+});
+
 // ─── every skill in the monorepo has valid frontmatter ─────────────────────
 
 const skillsRoot = join(here, '..', 'skills');
