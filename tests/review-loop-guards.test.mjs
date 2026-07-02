@@ -29,6 +29,7 @@ const parallel = async (thunks) => Promise.all(thunks.map((t) => t()));
 
 const snap = (size) => ({ snapshot: [{ path: 'a.py', size, head: 'head', tail: 'tail' }] });
 const multiSnap = (files) => ({ snapshot: files.map(([path, size]) => ({ path, size, head: `h${path}`, tail: `t${path}` })) });
+const hsnap = (size, hash) => ({ snapshot: [{ path: 'a.py', size, head: 'head', tail: 'tail', hash }] });
 const H = (file, line) => ({ severity: 'high', file, line, first8: `fp ${file} ${line}`, explanation: 'e' });
 const clean = { findings: [] };
 
@@ -214,6 +215,38 @@ test('changed-files: reviewers receive the changed file paths (paths only — no
   assert.match(prompts[0], /a\.py/);
   assert.match(prompts[0], /b\.py/);
   assert.doesNotMatch(prompts[0], /FP:/, 'changed-files must carry no fixer fingerprint tags');
+});
+
+// --- content hash: exact change detection when both snapshots carry `hash` ---
+
+test('content hash: an interior edit (same size/head/tail, different hash) is NOT stagnation', async () => {
+  // Without the hash field this reads as byte-identical → false STAGNATION. The hash makes it exact.
+  const res = await runScenario({
+    writer: hsnap(10, 'h1'),
+    rounds: [
+      { reviews: [{ findings: [H('a.py', 1)] }], fix: hsnap(10, 'h2') },  // real edit hidden from head/tail
+      { reviews: [clean] },
+    ],
+  });
+  assert.equal(res.stoppedBy, null, `interior edit must not read as stagnation, got: ${res.stoppedBy}`);
+  assert.equal(res.iterations, 2);
+});
+
+test('content hash: an identical hash (no real change) IS stagnation', async () => {
+  const res = await runScenario({
+    writer: hsnap(10, 'h1'),
+    rounds: [
+      { reviews: [{ findings: [H('a.py', 1)] }], fix: hsnap(10, 'h1') },  // same hash → no change
+      { reviews: [{ findings: [H('b.py', 2)] }] },
+    ],
+  });
+  assert.match(res.stoppedBy, /STAGNATION/);
+  assert.equal(res.iterations, 2);
+});
+
+test('static: SNAP_SCHEMA carries an optional hash field and the writer/fixer prompt requests git hash-object', () => {
+  assert.match(SRC, /hash:\s*\{\s*type:\s*'string'/);
+  assert.match(SRC, /hash-object/);
 });
 
 // --- WRITER-EMPTY guard ---
