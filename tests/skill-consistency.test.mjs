@@ -69,6 +69,15 @@ test('hygiene rule D: direct-edit + read-only review fallback for cross-repo/mec
   assert.match(hygiene, /read-only review/i);
 });
 
+// ─── dispatch section states the Workflow opt-in explicitly ────────────────
+const dispatch = sectionAfter(body, /Dispatch mechanism/i);
+
+test('dispatch section states the Workflow opt-in explicitly', () => {
+  assert.ok(dispatch, 'Dispatch mechanism section missing');
+  assert.match(dispatch, /opt-in/i, 'must state that invoking /manager is the Workflow opt-in');
+  assert.match(dispatch, /Workflow/, 'the opt-in statement must reference the Workflow tool');
+});
+
 // ─── every skill in the monorepo has valid frontmatter ─────────────────────
 
 const skillsRoot = join(here, '..', 'skills');

@@ -55,6 +55,9 @@ ORM sessions, async, migrations…) — i.e. nearly every code change. Grounding
 
 ## Dispatch mechanism — model+effort tiers via Workflow (read before dispatching)
 
+**Invoking `/manager` IS the Workflow opt-in.** Dispatch code-changing work through Workflow; do not fall back to
+inline `Edit`/`Write` because the Workflow tool feels gated — this skill is the explicit authorization it asks for.
+
 **Every specialist runs as a Workflow `agent()` call** — the Agent tool can't set reasoning effort (no `effort`
 param, no effort frontmatter key); only Workflow's `agent(prompt, {model, effort})` pins both. The `model` in the
 opts overrides each agent's frontmatter model, so the tier you pass wins regardless of how the agent is defined.
