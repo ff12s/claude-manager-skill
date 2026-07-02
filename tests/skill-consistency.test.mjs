@@ -78,6 +78,15 @@ test('dispatch section states the Workflow opt-in explicitly', () => {
   assert.match(dispatch, /Workflow/, 'the opt-in statement must reference the Workflow tool');
 });
 
+// ─── Rules section: loop is the default, not "expensive"; no escape hatch ───
+const rules = sectionAfter(body, /^##\s+Rules/m);
+
+test('Rules section does not frame the loop as expensive (no cost scare)', () => {
+  assert.ok(rules, 'Rules section missing');
+  assert.doesNotMatch(rules, /loop is expensive/i, 'the loop must not be advertised as expensive');
+  assert.doesNotMatch(rules, /prefer a direct edit/i, 'Rules must not license skipping the loop via a direct edit');
+});
+
 // ─── every skill in the monorepo has valid frontmatter ─────────────────────
 
 const skillsRoot = join(here, '..', 'skills');

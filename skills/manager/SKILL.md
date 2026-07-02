@@ -185,11 +185,11 @@ the user: name the condition and quote the remaining findings. Only EXIT-READY (
 - **Stack-specific beats generic.** Don't send a Django change to `python-pro` when `django-pro` exists.
 - **Always review.** Every code-changing dispatch enters the Review Loop with `comprehensive-review:comprehensive-review-code-reviewer`;
   add supplementary reviewers when their triggers fire.
-- **Parallel but capped — and the loop is expensive.** Reviewers fan out inside the Workflow (`parallel(...)`,
-  runtime cap ≤ min(16, cores−2)). With the 10-iteration cap, one stuck branch can cost ~`writer + 10×(reviewers +
-  fixer)` ≈ 30–40 dispatches, so the loop usually exits ready well before then but the worst case is real. Across
-  all branches in one task, **pause and confirm with the user before crossing ~40 total dispatches**, and prefer a
-  direct edit + read-only review for trivial/mechanical changes rather than spending the full loop.
+- **Parallel but capped — the loop is the default.** Reviewers fan out inside the Workflow (`parallel(...)`,
+  runtime cap ≤ min(16, cores−2)). The loop is cheap for a normal change — it usually exits ready in 1–2 rounds, so
+  run it by default and do not treat it as costly. Only genuine multi-branch fan-out approaches the worst case
+  (~`writer + 10×(reviewers + fixer)` per stuck branch); across all branches in one task, **pause and confirm with
+  the user before crossing ~40 total dispatches**.
 - **Reviewers can write.** wshobson reviewers inherit Write/Edit/Bash; for a hard read-only guarantee, say so in
   the prompt ("Read-only review. Do not edit files or run shell commands. Output the report only").
 - **Ground in docs before dispatching** (context7 first) — your job, not a subagent's. Don't dispatch an architect
