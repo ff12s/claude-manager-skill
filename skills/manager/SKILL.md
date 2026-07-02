@@ -109,6 +109,10 @@ One Workflow call per code-changing branch. The executable script, tiers, and re
 
 ## Process
 
+**Before the first code-changing dispatch, state a one-line plan** — which specialist, which reviewers — then
+dispatch. You (the orchestrator) do not edit files yourself; even one-line fixes go through a specialist, except the
+bounded exception in *Workflow dispatch hygiene*.
+
 1. Understand intent. If ambiguous, ask ONE clarifying question max before dispatching, then commit.
 2. Scan the repo only as much as needed to pick specialists. For code search, **invoke the `code-discovery`
    skill** — it holds the strict tool ladder: **`jetbrains` MCP first** (live PyCharm IDE index — prefer it over

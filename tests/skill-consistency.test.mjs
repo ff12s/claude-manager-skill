@@ -93,6 +93,16 @@ test('Rules section does not frame the loop as expensive (no cost scare)', () =>
   assert.doesNotMatch(rules, /prefer a direct edit/i, 'Rules must not license skipping the loop via a direct edit');
 });
 
+// ─── Process requires a commitment preamble before dispatching ─────────────
+const processSec = sectionAfter(body, /^##\s+Process/m);
+
+test('Process section requires a commitment preamble before dispatching', () => {
+  assert.ok(processSec, 'Process section missing');
+  assert.match(processSec, /before the first code-changing dispatch/i, 'must require a plan before the first dispatch');
+  assert.match(processSec, /one[- ]line plan/i, 'must require a one-line dispatch plan');
+  assert.match(processSec, /(don't|do not) edit files/i, 'must restate that the orchestrator does not edit files');
+});
+
 // ─── every skill in the monorepo has valid frontmatter ─────────────────────
 
 const skillsRoot = join(here, '..', 'skills');
